@@ -68,9 +68,9 @@ chmod +x push-to-github.sh
    Click "Environment Variables" and add these three variables:
 
    ```
-   NEXT_PUBLIC_TMDB_API_KEY=146610ec96b7952f9e5350c46a39caf5
-   NEXT_PUBLIC_SUPABASE_URL=https://rggefkqarkncqtyzcfkb.supabase.co
-   NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJnZ2Vma3FhcmtuY3F0eXpjZmtiIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Njk3NDQzODIsImV4cCI6MjA4NTMyMDM4Mn0.v1D-FdmBGIEbvEyKJyYMFA2atXklQoFU-TjOGKxYqmQ
+   NEXT_PUBLIC_TMDB_API_KEY=your_tmdb_api_key
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
    ```
 
 5. **Deploy:**
