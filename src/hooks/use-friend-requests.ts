@@ -15,6 +15,12 @@ import {
   type FriendRequest,
 } from '@/lib/social';
 
+// Realtime topics must be unique per subscription: the same hook can be mounted
+// more than once at a time (the header badge alongside the /friends page, say),
+// and two channels sharing a topic on one connection interfere. A per-instance
+// counter keeps them distinct.
+let channelSeq = 0;
+
 interface UseFriendRequests {
   incoming: FriendRequest[];
   outgoing: FriendRequest[];
@@ -52,6 +58,10 @@ export function useFriendRequests(): UseFriendRequests {
   // One client for the lifetime of the hook: Realtime channels are bound to a
   // connection, so a fresh client per render would leak sockets.
   const supabase = useMemo(() => createSocialClient(), []);
+  const channelId = useMemo(() => {
+    channelSeq += 1;
+    return channelSeq;
+  }, []);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -98,7 +108,7 @@ export function useFriendRequests(): UseFriendRequests {
     if (!userId) return;
 
     const channel = supabase
-      .channel(`friend-requests:${userId}`)
+      .channel(`friend-requests:${userId}:${channelId}`)
       .on(
         'postgres_changes',
         {
@@ -126,7 +136,7 @@ export function useFriendRequests(): UseFriendRequests {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [supabase, userId, refresh]);
+  }, [supabase, userId, refresh, channelId]);
 
   const withBusy = useCallback(
     async (id: string, action: () => Promise<void>, failure: string): Promise<boolean> => {

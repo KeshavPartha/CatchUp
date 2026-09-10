@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Users, Inbox, UserPlus, ShieldCheck } from 'lucide-react';
+import { Users, Inbox, UserPlus, ShieldCheck, Sparkles } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useFriends } from '@/hooks/use-friends';
@@ -10,8 +10,10 @@ import { useFriendRequests } from '@/hooks/use-friend-requests';
 import { FriendCard } from '@/components/social/friend-card';
 import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { AddFriendSearch } from '@/components/social/add-friend-search';
+import { RecommendationInbox } from '@/components/social/recommendation-inbox';
+import { useRecommendations } from '@/hooks/use-recommendations';
 
-type Tab = 'friends' | 'requests' | 'add';
+type Tab = 'friends' | 'recommendations' | 'requests' | 'add';
 
 function FriendsSkeleton() {
   return (
@@ -61,6 +63,7 @@ export default function FriendsPage() {
   const [tab, setTab] = useState<Tab>('friends');
 
   const { friends, loading: friendsLoading, busyIds: friendBusyIds, remove } = useFriends();
+  const { unseenCount } = useRecommendations();
   const {
     incoming,
     outgoing,
@@ -98,6 +101,7 @@ export default function FriendsPage() {
 
   const tabs: { id: Tab; label: string; badge?: number }[] = [
     { id: 'friends', label: 'Friends', badge: friends.length || undefined },
+    { id: 'recommendations', label: 'Recommended', badge: unseenCount || undefined },
     { id: 'requests', label: 'Requests', badge: pendingCount || undefined },
     { id: 'add', label: 'Add friend' },
   ];
@@ -144,7 +148,7 @@ export default function FriendsPage() {
                 <span
                   className={cn(
                     'rounded-full px-2 py-0.5 text-xs font-bold',
-                    item.id === 'requests'
+                    item.id === 'requests' || item.id === 'recommendations'
                       ? 'bg-netflix-red text-white'
                       : 'bg-netflix-gray text-netflix-lightGray'
                   )}
@@ -176,6 +180,16 @@ export default function FriendsPage() {
               ))}
             </ul>
           ))}
+
+        {tab === 'recommendations' && (
+          <div>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <Sparkles className="h-5 w-5" />
+              Recommended by friends
+            </h2>
+            <RecommendationInbox />
+          </div>
+        )}
 
         {tab === 'requests' && (
           <div className="space-y-10">

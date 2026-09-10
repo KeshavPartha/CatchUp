@@ -20,6 +20,10 @@ import type { Database } from '@/lib/supabase/database.types';
 export type SocialClient = SupabaseClient<Database, 'public'>;
 
 export type FriendRequestStatus = Database['public']['Enums']['friend_request_status'];
+export type RecommendationStatus = Database['public']['Enums']['recommendation_status'];
+
+/** Matches the media_type CHECK shared by every media-referencing table. */
+export type MediaType = 'movie' | 'tv';
 
 /**
  * The viewer's relationship to another user, as reported by `search_users`.
@@ -43,6 +47,25 @@ export interface Friend extends SocialProfile {
 export interface FriendRequest extends SocialProfile {
   requestId: string;
   createdAt: string;
+}
+
+/**
+ * A recommendation joined to its counterparty -- the sender for an incoming
+ * one, the recipient for an outgoing one.
+ */
+export interface Recommendation extends SocialProfile {
+  recommendationId: string;
+  mediaId: number;
+  mediaType: MediaType;
+  note: string | null;
+  status: RecommendationStatus;
+  createdAt: string;
+}
+
+/** A friend in the "recommend this title" picker. */
+export interface RecommendationTarget extends SocialProfile {
+  alreadySent: boolean;
+  recommendationId: string | null;
 }
 
 export interface UserSearchResult extends SocialProfile {

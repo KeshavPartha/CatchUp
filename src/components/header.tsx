@@ -5,7 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Search, Bell, User, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
-import { FriendRequestsBadge } from '@/components/social/friend-requests-badge';
+import { SocialNavBadge } from '@/components/social/social-nav-badge';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -67,7 +67,7 @@ export function Header() {
                 )}
               >
                 {item.name}
-                {item.href === '/friends' && <FriendRequestsBadge />}
+                {item.href === '/friends' && <SocialNavBadge />}
               </Link>
             ))}
           </nav>
@@ -141,7 +141,7 @@ export function Header() {
                 )}
               >
                 {item.name}
-                {item.href === '/friends' && <FriendRequestsBadge />}
+                {item.href === '/friends' && <SocialNavBadge />}
               </Link>
             ))}
             <button

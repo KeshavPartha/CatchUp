@@ -8,4 +8,5 @@ export * from './types';
 export * from './errors';
 export * from './friendships';
 export * from './requests';
+export * from './recommendations';
 export * from './search';

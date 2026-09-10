@@ -6,6 +6,7 @@ import { Play, Plus, ThumbsUp, Check } from 'lucide-react';
 import { useMyList } from '@/hooks/use-my-list';
 import { useLikedItems } from '@/hooks/use-liked-items';
 import { TrailerModal } from './trailer-modal';
+import { RecommendButton } from '@/components/social/recommend-button';
 
 interface TVShowDetailActionsProps {
   showId: number;
@@ -77,6 +78,7 @@ export function TVShowDetailActions({ showId, showTitle, trailerKey }: TVShowDet
         >
           <ThumbsUp className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
         </button>
+        <RecommendButton mediaId={showId} mediaType="tv" title={showTitle} />
       </div>
 
       {showTrailer && trailerKey && (

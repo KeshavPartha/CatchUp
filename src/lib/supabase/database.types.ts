@@ -181,6 +181,48 @@ export interface Database {
           },
         ];
       };
+      recommendations: {
+        Row: {
+          id: string;
+          sender_id: string;
+          recipient_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          note: string | null;
+          status: Database['public']['Enums']['recommendation_status'];
+          created_at: string;
+          responded_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          sender_id: string;
+          recipient_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          note?: string | null;
+          status?: Database['public']['Enums']['recommendation_status'];
+          created_at?: string;
+          responded_at?: string | null;
+        };
+        Update: {
+          status?: Database['public']['Enums']['recommendation_status'];
+          responded_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'recommendations_sender_id_fkey';
+            columns: ['sender_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'recommendations_recipient_id_fkey';
+            columns: ['recipient_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -258,9 +300,68 @@ export interface Database {
         Args: { p_username: string };
         Returns: undefined;
       };
+      recommend_title: {
+        Args: {
+          p_recipient_id: string;
+          p_media_id: number;
+          p_media_type: 'movie' | 'tv';
+          p_note?: string | null;
+        };
+        Returns: string;
+      };
+      set_recommendation_status: {
+        Args: { p_id: string; p_status: string };
+        Returns: undefined;
+      };
+      withdraw_recommendation: {
+        Args: { p_id: string };
+        Returns: undefined;
+      };
+      list_incoming_recommendations: {
+        Args: { p_include_resolved?: boolean };
+        Returns: {
+          recommendation_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          note: string | null;
+          status: string;
+          created_at: string;
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+        }[];
+      };
+      list_outgoing_recommendations: {
+        Args: Record<string, never>;
+        Returns: {
+          recommendation_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          note: string | null;
+          status: string;
+          created_at: string;
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+        }[];
+      };
+      list_recommendation_targets: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv' };
+        Returns: {
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+          already_sent: boolean;
+          recommendation_id: string | null;
+        }[];
+      };
     };
     Enums: {
       friend_request_status: 'pending' | 'accepted' | 'declined' | 'cancelled';
+      recommendation_status: 'pending' | 'seen' | 'dismissed' | 'added';
     };
   };
 }

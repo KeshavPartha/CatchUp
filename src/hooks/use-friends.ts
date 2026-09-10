@@ -6,6 +6,12 @@ import { createSocialClient } from '@/lib/social/client';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { displayName, listFriends, socialErrorMessage, unfriend, type Friend } from '@/lib/social';
 
+// Realtime topics must be unique per subscription: the same hook can be mounted
+// more than once at a time (the header badge alongside the /friends page, say),
+// and two channels sharing a topic on one connection interfere. A per-instance
+// counter keeps them distinct.
+let channelSeq = 0;
+
 interface UseFriends {
   friends: Friend[];
   loading: boolean;
@@ -34,6 +40,10 @@ export function useFriends(): UseFriends {
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
 
   const supabase = useMemo(() => createSocialClient(), []);
+  const channelId = useMemo(() => {
+    channelSeq += 1;
+    return channelSeq;
+  }, []);
   const mounted = useRef(true);
 
   useEffect(() => {
@@ -74,7 +84,7 @@ export function useFriends(): UseFriends {
     // Two listeners because the viewer may be on either side of the canonical
     // (user_a_id < user_b_id) ordering, and a filter cannot express OR.
     const channel = supabase
-      .channel(`friendships:${userId}`)
+      .channel(`friendships:${userId}:${channelId}`)
       .on(
         'postgres_changes',
         { event: '*', schema: 'public', table: 'friendships', filter: `user_a_id=eq.${userId}` },
@@ -90,7 +100,7 @@ export function useFriends(): UseFriends {
     return () => {
       void supabase.removeChannel(channel);
     };
-  }, [supabase, userId, refresh]);
+  }, [supabase, userId, refresh, channelId]);
 
   const isFriend = useCallback(
     (candidateId: string) => friends.some((friend) => friend.userId === candidateId),
