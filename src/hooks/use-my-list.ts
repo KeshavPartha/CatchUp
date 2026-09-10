@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { showToast } from '@/components/toast';
 
-const STORAGE_KEY = 'netflix_my_list';
+const STORAGE_KEY = 'catchup_my_list';
 
 interface MyListItem {
   id: string;
@@ -46,6 +47,13 @@ export function useMyList() {
     const localList = getLocalList();
     if (localList.length > 0) {
       setMyList(localList);
+    }
+
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
     }
 
     const supabase = createClient();
@@ -145,7 +153,7 @@ export function useMyList() {
     const supabase = createClient();
     const { error } = await supabase
       .from('my_list')
-      .insert({ media_id: mediaId, media_type: mediaType, user_id: userId } as any);
+      .insert({ media_id: mediaId, media_type: mediaType, user_id: userId });
 
     if (error) {
       // Rollback optimistic update
@@ -227,4 +235,3 @@ export function useMyList() {
     isAuthenticated: !!userId,
   };
 }
-

@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 750">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#071a3d"/><stop offset="1" stop-color="#273b8f"/></linearGradient></defs>
+  <rect width="500" height="750" fill="url(#g)"/><circle cx="360" cy="190" r="105" fill="#8be9fd" opacity=".75"/><path d="M0 550C120 470 190 620 300 510s130-80 200-20v260H0z" fill="#090d26"/><path d="M80 0v750M220 0v750M0 330h500" stroke="#9be7ff" opacity=".13"/>
+  <text x="42" y="610" fill="white" font-family="sans-serif" font-size="42" font-weight="700">ECHOES</text><text x="42" y="658" fill="#8be9fd" font-family="sans-serif" font-size="42" font-weight="700">OF ORION</text><text x="44" y="700" fill="white" opacity=".7" font-family="sans-serif" font-size="15" letter-spacing="4">A CATCHUP ORIGINAL</text>
+</svg>

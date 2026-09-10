@@ -1,114 +1,33 @@
-# 🗄️ Supabase Setup Guide
+# Supabase setup for CatchUp
 
-## ✅ Environment Variables Configured
+## Configure the app
 
-Your `.env.local` file has been configured with:
-- ✅ TMDB API Key
-- ✅ Supabase Project URL
-- ✅ Supabase Anon Key
+Create `.env.local` from `.env.example`:
 
-## 📝 Next Step: Run Database Schema
+```env
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
 
-### 1. Open Supabase SQL Editor
+The project URL and anon key are in Supabase Project Settings → API. Never put a service-role key in a `NEXT_PUBLIC_` variable or client code; the current CatchUp foundation does not require one.
 
-Go to: https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/sql/new
+## Apply the schema
 
-### 2. Copy the SQL Schema
+Open the SQL editor in your Supabase project and run [supabase-schema.sql](./supabase-schema.sql). It creates or upgrades:
 
-Open the file `supabase-schema.sql` in your project and copy all the content.
+- `profiles` for user metadata
+- `my_list` and `liked_items` for the existing browsing experience
+- `watch_progress` for per-episode private progress
+- future-ready tables for plot events, friendships, recommendations, progress shares, and watch parties
 
-### 3. Execute the SQL
+Row Level Security is enabled. The current foundation includes policies for private profiles, lists, likes, and watch progress. Future tables intentionally have no permissive client policies until their features are implemented.
 
-1. Paste the SQL into the Supabase SQL Editor
-2. Click the "Run" button (or press Ctrl/Cmd + Enter)
-3. You should see success messages
+## Auth configuration
 
-### 4. Verify Tables Created
+Under Authentication → URL Configuration:
 
-Go to: https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/editor
+- Site URL: `http://localhost:3000`
+- Add the deployed `NEXT_PUBLIC_APP_URL` when deploying
 
-You should see two new tables:
-- `profiles` - User profile information
-- `my_list` - User watchlist/favorites
-
-## 🧪 Test Authentication
-
-Once the database is set up:
-
-1. **Go to Signup Page:**
-   - http://localhost:3006/signup
-
-2. **Create a Test Account:**
-   - Enter your name, email, and password
-   - Click "Sign Up"
-
-3. **Verify in Supabase:**
-   - Go to: https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/auth/users
-   - You should see your new user
-   - Check the `profiles` table - a profile should be auto-created
-
-4. **Test Login:**
-   - Go to: http://localhost:3006/login
-   - Login with your credentials
-
-## 🎯 What the Database Schema Provides
-
-### Tables:
-
-**profiles**
-- Stores user profile data (name, email, avatar)
-- Automatically created when a user signs up
-- Linked to Supabase auth.users
-
-**my_list**
-- Stores user's favorite movies/shows
-- Each user can only see their own list
-- Prevents duplicate entries
-
-### Security:
-
-**Row Level Security (RLS)**
-- Users can only access their own data
-- Automatic enforcement at database level
-- No way to access other users' information
-
-### Triggers:
-
-**Auto-create Profile**
-- When a user signs up, a profile is automatically created
-- Copies name and email from signup form
-
-**Auto-update Timestamps**
-- Automatically updates `updated_at` when profile changes
-
-## 🚀 After Database Setup
-
-Once you've run the SQL schema, you can:
-
-1. ✅ Sign up new users
-2. ✅ Login/logout functionality
-3. ✅ User profiles
-4. ✅ Add movies to "My List" (feature to be built)
-
-## 📌 Important Notes
-
-- The `.env.local` file is NOT committed to git (for security)
-- When deploying to Vercel, you'll need to add these environment variables in the Vercel dashboard
-- The database password you provided is stored securely in Supabase
-
-## 🔗 Quick Links
-
-- **Supabase Dashboard:** https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb
-- **SQL Editor:** https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/sql/new
-- **Table Editor:** https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/editor
-- **Auth Users:** https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/auth/users
-- **API Settings:** https://supabase.com/dashboard/project/rggefkqarkncqtyzcfkb/settings/api
-
-## ❓ Need Help?
-
-If you encounter any issues:
-1. Check the Supabase logs in the dashboard
-2. Verify the SQL ran without errors
-3. Make sure the dev server restarted after adding env variables
-4. Check browser console for any error messages
-
+Create a test account at `/signup`, open a show episode, use the demo player, and reopen the episode. With the schema and Supabase variables configured, the position and completion state should be restored and appear in Continue Watching while incomplete.

@@ -3,15 +3,16 @@
 import { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Search } from 'lucide-react';
-import { searchMovies, Movie } from '@/lib/tmdb';
+import { searchCatalog, CatalogSearchResult } from '@/lib/catalog';
 import { MovieCard } from '@/components/movie-card';
+import { TVShowCard } from '@/components/tv-show-card';
 
 function SearchContent() {
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
 
   const [query, setQuery] = useState(initialQuery);
-  const [movies, setMovies] = useState<Movie[]>([]);
+  const [results, setResults] = useState<CatalogSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
 
@@ -22,11 +23,11 @@ function SearchContent() {
     setSearched(true);
 
     try {
-      const results = await searchMovies(searchQuery);
-      setMovies(results);
+      const catalogResults = await searchCatalog(searchQuery);
+      setResults(catalogResults);
     } catch (error) {
       console.error('Search error:', error);
-      setMovies([]);
+      setResults([]);
     } finally {
       setLoading(false);
     }
@@ -74,7 +75,7 @@ function SearchContent() {
           </div>
         )}
 
-        {!loading && searched && movies.length === 0 && (
+        {!loading && searched && results.length === 0 && (
           <div className="text-center">
             <p className="text-xl text-netflix-lightGray">
               No results found for &quot;{query}&quot;. Try a different search.
@@ -82,14 +83,18 @@ function SearchContent() {
           </div>
         )}
 
-        {!loading && movies.length > 0 && (
+        {!loading && results.length > 0 && (
           <div>
             <h2 className="mb-6 text-2xl font-semibold">
-              Search Results for &quot;{query}&quot; ({movies.length})
+              Search Results for &quot;{query}&quot; ({results.length})
             </h2>
             <div className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-              {movies.map((movie) => (
-                <MovieCard key={movie.id} movie={movie} />
+              {results.map((result) => (
+                result.media_type === 'movie' ? (
+                  <MovieCard key={`movie-${result.id}`} movie={result} />
+                ) : (
+                  <TVShowCard key={`tv-${result.id}`} show={result} />
+                )
               ))}
             </div>
           </div>

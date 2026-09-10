@@ -4,67 +4,68 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Play, X } from 'lucide-react';
-import { useContinueWatching } from '@/hooks/use-continue-watching';
-import { getMovieDetails, MovieDetails, getPosterUrl } from '@/lib/tmdb';
+import { getEpisodeById, getMovieDetails, getTVShowDetails, Episode, MovieDetails, TVShowDetails, getPosterUrl } from '@/lib/catalog';
+import { ContinueWatchingItem, useContinueWatching } from '@/hooks/use-continue-watching';
 
-interface ContinueWatchingItem {
-  media_id: number;
-  media_type: 'movie' | 'tv';
-  progress: number;
-  movie?: MovieDetails;
-}
+type ResolvedContinueItem =
+  | (ContinueWatchingItem & { media_type: 'tv'; episode: Episode; show: TVShowDetails })
+  | (ContinueWatchingItem & { media_type: 'movie'; movie: MovieDetails });
 
 export function ContinueWatchingRow() {
   const { watchList, loading, removeFromWatching, isAuthenticated } = useContinueWatching();
-  const [items, setItems] = useState<ContinueWatchingItem[]>([]);
+  const [items, setItems] = useState<ResolvedContinueItem[]>([]);
   const [loadingItems, setLoadingItems] = useState(false);
 
   useEffect(() => {
-    const fetchMovieDetails = async () => {
+    let mounted = true;
+    const resolveItems = async () => {
       if (watchList.length === 0) {
         setItems([]);
         return;
       }
 
       setLoadingItems(true);
-      try {
-        const movieItems = watchList.filter(w => w.media_type === 'movie');
-        const moviePromises = movieItems.map(async (item): Promise<ContinueWatchingItem> => {
+      const resolved = await Promise.all(
+        watchList.map(async (item) => {
           try {
-            const movie = await getMovieDetails(item.media_id);
-            return { media_id: item.media_id, media_type: item.media_type, progress: item.progress, movie };
+            if (item.media_type === 'movie' && item.media_id !== null) {
+              const movie = await getMovieDetails(item.media_id);
+              return { ...item, movie };
+            }
+            if (!item.episode_id || !item.show_id) return null;
+            const [episode, show] = await Promise.all([
+              getEpisodeById(item.episode_id),
+              getTVShowDetails(Number(item.show_id)),
+            ]);
+            return { ...item, episode, show };
           } catch {
-            return { media_id: item.media_id, media_type: item.media_type, progress: item.progress };
+            return null;
           }
-        });
-
-        const results = await Promise.all(moviePromises);
-        setItems(results.filter((r): r is ContinueWatchingItem & { movie: MovieDetails } => r.movie !== undefined));
-      } catch (error) {
-        console.error('Error fetching movie details:', error);
-      } finally {
+        })
+      );
+      if (mounted) {
+        setItems(resolved.filter((item): item is ResolvedContinueItem => item !== null));
         setLoadingItems(false);
       }
     };
 
-    fetchMovieDetails();
+    void resolveItems();
+    return () => {
+      mounted = false;
+    };
   }, [watchList]);
 
-  if (!isAuthenticated || loading || loadingItems || items.length === 0) {
-    return null;
-  }
+  if (!isAuthenticated || loading || loadingItems || items.length === 0) return null;
 
   return (
     <section className="space-y-2">
-      <h2 className="px-4 text-lg font-semibold md:px-8 md:text-xl lg:text-2xl">
-        Continue Watching
-      </h2>
+      <h2 className="px-4 text-lg font-semibold md:px-8 md:text-xl lg:text-2xl">Continue Watching</h2>
       <div className="flex gap-2 overflow-x-scroll px-4 scrollbar-hide md:gap-3 md:px-8">
         {items.map((item) => (
-          <div key={item.media_id} className="w-48 flex-shrink-0 md:w-64 lg:w-72">
+          <div key={item.id} className="w-56 flex-shrink-0 md:w-72">
             <ContinueWatchingCard
               item={item}
-              onRemove={() => removeFromWatching(item.media_id, item.media_type)}
+              onRemove={() => removeFromWatching(item)}
             />
           </div>
         ))}
@@ -73,61 +74,46 @@ export function ContinueWatchingRow() {
   );
 }
 
-interface CardProps {
-  item: ContinueWatchingItem;
-  onRemove: () => void;
-}
-
-function ContinueWatchingCard({ item, onRemove }: CardProps) {
-  const { movie, progress } = item;
-  if (!movie) return null;
+function ContinueWatchingCard({ item, onRemove }: { item: ResolvedContinueItem; onRemove: () => void }) {
+  const { progress_percent: progress } = item;
+  const isMovie = item.media_type === 'movie';
+  const title = isMovie ? item.movie.title : item.show.name;
+  const subtitle = isMovie ? 'Movie' : `S${item.episode.season_number} E${item.episode.episode_number} · ${item.episode.name}`;
+  const image = isMovie ? getPosterUrl(item.movie.backdrop_path) : item.episode.still_path || getPosterUrl(item.show.poster_path);
+  const href = isMovie ? `/movie/${item.movie.id}/play` : `/tv/${item.show.id}/episode/${item.episode.id}`;
 
   return (
-    <div className="group relative">
-      <Link href={`/movie/${movie.id}`} className="block">
-        <div className="relative aspect-video overflow-hidden rounded-md bg-netflix-gray">
+    <div className="group relative overflow-hidden rounded-md bg-netflix-gray">
+      <Link href={href} className="block">
+        <div className="relative aspect-video">
           <Image
-            src={movie.backdrop_path ? `https://image.tmdb.org/t/p/w500${movie.backdrop_path}` : getPosterUrl(movie.poster_path)}
-            alt={movie.title}
+            src={image}
+            alt={`${title} - ${subtitle}`}
             fill
             className="object-cover"
           />
-          
-          {/* Play overlay */}
-          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity">
-            <div className="rounded-full bg-white/90 p-3">
-              <Play className="h-8 w-8 fill-black text-black" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
+            <div className="rounded-full bg-white/90 p-3 text-black">
+              <Play className="h-6 w-6 fill-current" />
             </div>
           </div>
-
-          {/* Progress bar */}
-          <div className="absolute bottom-0 left-0 right-0 h-1 bg-gray-600">
-            <div 
-              className="h-full bg-netflix-red" 
-              style={{ width: `${progress}%` }}
-            />
-          </div>
         </div>
-
-        <div className="mt-2">
-          <h3 className="truncate text-sm font-medium">{movie.title}</h3>
+        <div className="space-y-1 p-3">
+          <p className="truncate font-semibold">{title}</p>
+          <p className="truncate text-sm text-netflix-lightGray">{subtitle}</p>
+          <div className="h-1 w-full overflow-hidden rounded bg-netflix-darkGray">
+            <div className="h-full bg-netflix-red" style={{ width: `${progress}%` }} />
+          </div>
           <p className="text-xs text-netflix-lightGray">{progress}% watched</p>
         </div>
       </Link>
-
-      {/* Remove button */}
       <button
-        onClick={(e) => {
-          e.preventDefault();
-          e.stopPropagation();
-          onRemove();
-        }}
-        className="absolute top-2 right-2 rounded-full bg-black/70 p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-black"
-        aria-label="Remove from Continue Watching"
+        onClick={onRemove}
+        aria-label={`Remove ${title} from Continue Watching`}
+        className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
       >
         <X className="h-4 w-4" />
       </button>
     </div>
   );
 }
-

@@ -4,8 +4,8 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { Play, Plus, Check, ThumbsUp, ChevronDown } from 'lucide-react';
-import { Movie } from '@/lib/tmdb';
-import { getPosterUrl } from '@/lib/tmdb';
+import { Movie } from '@/lib/catalog';
+import { getPosterUrl } from '@/lib/catalog';
 import { useState } from 'react';
 import { cn } from '@/lib/utils';
 import { useMyList } from '@/hooks/use-my-list';
@@ -143,4 +143,3 @@ export function MovieCard({ movie, priority = false }: MovieCardProps) {
     </Link>
   );
 }
-

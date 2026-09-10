@@ -1,132 +1,100 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { Database } from '@/lib/supabase/database.types';
+import { logSupabaseError } from '@/lib/supabase/logging';
 
-type WatchProgressInsert = Database['public']['Tables']['watch_progress']['Insert'];
-
-interface WatchProgress {
-  id: string;
-  user_id: string;
-  media_id: number;
-  media_type: 'movie' | 'tv';
-  progress: number; // percentage 0-100
-  last_watched: string;
-}
+export type ContinueWatchingItem = Database['public']['Tables']['watch_progress']['Row'];
 
 export function useContinueWatching() {
-  const [watchList, setWatchList] = useState<WatchProgress[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [user, setUser] = useState<any>(null);
-  const initialized = useRef(false);
+  const [watchList, setWatchList] = useState<ContinueWatchingItem[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [userId, setUserId] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (initialized.current) return;
-    initialized.current = true;
+  const fetchWatchProgress = useCallback(async (uid: string) => {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from('watch_progress')
+      .select('*')
+      .eq('user_id', uid)
+      .eq('completed', false)
+      .order('last_watched_at', { ascending: false })
+      .limit(20);
 
-    const checkUser = async () => {
-      try {
-        const supabase = createClient();
-        const { data: { user }, error } = await supabase.auth.getUser();
-        if (error || !user) return;
-        
-        setUser(user);
-        await fetchWatchProgress(user.id);
-      } catch (error) {
-        console.log('Auth check failed:', error);
-      }
-    };
-    checkUser();
+    if (error) {
+      logSupabaseError('continue-watching', 'read', error, { userId: uid });
+      return;
+    }
+
+    setWatchList(data ?? []);
   }, []);
 
-  const fetchWatchProgress = async (userId?: string) => {
-    if (!userId && !user) return;
+  useEffect(() => {
+    let mounted = true;
 
-    try {
-      setLoading(true);
-      const supabase = createClient();
-      const { data, error } = await supabase
-        .from('watch_progress')
-        .select('*')
-        .order('last_watched', { ascending: false })
-        .limit(20);
-
-      if (error) {
-        console.log('Error fetching watch progress:', error.message);
-        return;
-      }
-      setWatchList(data || []);
-    } catch (error) {
-      console.log('Error fetching watch progress:', error);
-    } finally {
+    if (!isSupabaseConfigured) {
       setLoading(false);
-    }
-  };
-
-  const updateProgress = async (
-    mediaId: number,
-    mediaType: 'movie' | 'tv',
-    progress: number
-  ) => {
-    if (!user) return;
-
-    try {
-      const supabase = createClient();
-      const insertData: WatchProgressInsert = {
-        user_id: user.id as string,
-        media_id: mediaId,
-        media_type: mediaType,
-        progress: Math.min(100, Math.max(0, progress)),
-        last_watched: new Date().toISOString(),
+      return () => {
+        mounted = false;
       };
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error } = await (supabase as any)
-        .from('watch_progress')
-        .upsert(insertData, {
-          onConflict: 'user_id,media_id,media_type'
-        });
-
-      if (error) throw error;
-      await fetchWatchProgress(user.id);
-    } catch (error) {
-      console.error('Error updating progress:', error);
     }
-  };
 
-  const removeFromWatching = async (mediaId: number, mediaType: 'movie' | 'tv') => {
-    if (!user) return;
+    const supabase = createClient();
+    const initialize = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!mounted) return;
+      setUserId(user?.id ?? null);
+      if (user) await fetchWatchProgress(user.id);
+      if (mounted) setLoading(false);
+    };
 
-    try {
-      const supabase = createClient();
-      const { error } = await supabase
-        .from('watch_progress')
-        .delete()
-        .eq('media_id', mediaId)
-        .eq('media_type', mediaType)
-        .eq('user_id', user.id);
+    void initialize();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (!mounted) return;
+      const uid = session?.user?.id ?? null;
+      setUserId(uid);
+      if (uid) await fetchWatchProgress(uid);
+      else setWatchList([]);
+    });
 
-      if (error) throw error;
-      await fetchWatchProgress(user.id);
-    } catch (error) {
-      console.error('Error removing from watching:', error);
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
+  }, [fetchWatchProgress]);
+
+  const removeFromWatching = useCallback(async (item: ContinueWatchingItem) => {
+    if (!userId) return;
+    const supabase = createClient();
+    let query = supabase
+      .from('watch_progress')
+      .delete()
+      .eq('user_id', userId)
+      .eq('media_type', item.media_type);
+
+    if (item.media_type === 'movie' && item.media_id !== null) {
+      query = query.eq('media_id', item.media_id);
+    } else if (item.episode_id) {
+      query = query.eq('episode_id', item.episode_id);
+    } else {
+      return;
     }
-  };
 
-  const getProgress = (mediaId: number, mediaType: 'movie' | 'tv' = 'movie') => {
-    const item = watchList.find(
-      (w) => w.media_id === mediaId && w.media_type === mediaType
-    );
-    return item?.progress || 0;
-  };
+    const { error } = await query;
+    if (error) {
+      logSupabaseError('continue-watching', 'delete', error, { userId, progressId: item.id });
+      return;
+    }
+
+    setWatchList((current) => current.filter((currentItem) => currentItem.id !== item.id));
+  }, [userId]);
 
   return {
     watchList,
     loading,
-    updateProgress,
     removeFromWatching,
-    getProgress,
-    isAuthenticated: !!user,
+    isAuthenticated: Boolean(userId),
   };
 }
-
