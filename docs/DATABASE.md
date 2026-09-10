@@ -34,6 +34,10 @@ One row per user and episode, unique on `(user_id, episode_id)`, or per user and
 - Future AI retrieval must query through an episode boundary, not directly expose unrestricted plot-event rows to a client.
 - Service-role credentials, if ever needed, remain server-only.
 
+## Narrative ingestion output
+
+The prototype ingestion pipeline accepts a transcript and canonical episode identity, then returns validated `PlotEvent` records plus database-ready `episode_plot_events` inserts. Insert rows omit the generated UUID so Supabase can assign it and include the stable show/season/episode IDs, ordered event text, characters, importance score, and tags. Re-running the same normalized output is intended to use the table’s `(episode_id, event_order)` uniqueness constraint with an explicit upsert by the future ingestion job. The current pipeline prepares rows only; it does not write to Supabase and does not involve user progress or client permissions.
+
 ## Write behavior
 
 The player sends idempotent upserts for an episode or movie. Progress updates are clamped to valid ranges, debounced, and flushed on pause, completion, and page exit where possible. Completion is explicit in storage and should be monotonic unless a future product action deliberately reopens an item.

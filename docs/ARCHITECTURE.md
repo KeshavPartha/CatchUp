@@ -31,6 +31,10 @@ Supabase Auth is the identity boundary. The recap endpoint accepts the browser s
 
 `src/lib/recaps/types.ts` defines the stable plot-event, progress-reader, boundary, and retrieval result contracts. `demo-plot-events.ts` contains controlled narrative data for the full `Echoes of Orion` show. `spoiler-boundary.ts` computes the completed-prior-episode scope, and `retrieval.ts` filters events to that scope and provides an injected Supabase progress reader. `generator.ts` hides Anthropic/OpenAI provider choices behind `RecapGenerator` and `RecapQuestionGenerator`; provider adapters live under `src/lib/recaps/providers/`. `endpoint.ts` coordinates recap authentication, catalog validation, retrieval, and generation; `question-endpoint.ts` performs the same flow for follow-up questions. `src/lib/recaps/client.ts` sends only identifiers, questions, and the Supabase bearer token from the browser. `CatchMeUpButton` owns the focused dialog and lightweight Q&A history; the server passes only filtered events to the provider.
 
+## Narrative ingestion
+
+`src/lib/ingestion/pipeline.ts` is a separate ahead-of-time transcript workflow. It validates the requested catalog episode, splits the transcript into bounded chunks, calls an injectable `NarrativeExtractionProvider`, validates strict JSON with Zod, normalizes event text/characters/tags, removes normalized duplicate events, assigns deterministic event order/IDs, and prepares inserts compatible with `episode_plot_events`. The Anthropic adapter uses the existing server-only `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL`, and Messages API configuration. It does not read watch progress or modify the runtime spoiler boundary. Recap and Q&A continue to receive only events filtered later by `retrieval.ts`.
+
 ## Future extension points
 
 Episode plot events attach to stable show, season, and episode IDs and carry ordered narrative metadata. Social permissions attach a viewer to a specific show and friend, never to a global history feed. Watch Together sessions own a shared episode and playback state, with membership and event authorization enforced separately from personal progress.

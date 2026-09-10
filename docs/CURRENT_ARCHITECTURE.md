@@ -20,6 +20,7 @@ src/hooks/               My List, likes, Continue Watching, and episode progress
 src/lib/catalog.ts       Controlled local catalog and catalog adapter functions
 src/lib/supabase/        Supabase browser client, config guard, and database types
 src/lib/recaps/          Plot events, boundary/retrieval logic, provider adapters, and recap/Q&A endpoint coordination
+src/lib/ingestion/       Transcript chunking, extraction provider, validation, normalization, and DB-row preparation
 public/demo/             Locally controlled poster/backdrop SVG artwork
 supabase-schema.sql      Current/future-ready Supabase schema and RLS policies
 docs/                    Product, architecture, database, AI, social, and party specs
@@ -69,6 +70,8 @@ The current schema includes `profiles`, `my_list`, `liked_items`, and the expand
 The schema also creates future-ready, RLS-enabled tables for `episode_plot_events`, `friendships`, `show_recommendations`, `progress_shares`, `watch_parties`, `watch_party_members`, and `watch_party_events`. `episode_plot_events` now has show/season/episode metadata, event text, involved characters, importance, and tags; legacy narrative columns remain nullable for compatibility. Future tables intentionally have no permissive client policies until their features are implemented.
 
 The server-side recap and question endpoints currently use the local `Echoes of Orion` events as their controlled source. They do not expose plot-event rows to the client or add client policies for the server-managed table.
+
+The narrative ingestion prototype accepts a transcript for a validated catalog episode, calls the server-side Anthropic extraction adapter in bounded chunks, validates and normalizes the response, and prepares `episode_plot_events` rows. It does not replace the current manually authored data, write to Supabase, or read user watch progress. Runtime retrieval still applies the user-specific spoiler boundary afterward.
 
 Catch Me Up is presented by `CatchMeUpButton` in the show’s main action area and episode cards. It waits for authenticated progress to finish loading before showing an action, calls `/api/recap` with only the target identifiers and bearer token, and displays a focused responsive dialog with loading, recap, empty, authentication, error, retry, and playback actions. After a recap, the same dialog calls `/api/recap/question` with the target identifiers, question, and bearer token; the server reruns the same spoiler-safe retrieval and returns only an answer.
 
