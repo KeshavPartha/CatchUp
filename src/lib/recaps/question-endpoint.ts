@@ -1,60 +1,55 @@
-import type { Episode, TVShowDetails } from '@/lib/catalog';
-
-import { generateRecapFromSafeEvents } from './service';
 import type { AuthenticatedRecapContext } from './auth';
-import type { RecapGenerator } from './generator';
+import type { RecapQuestionGenerator } from './generator';
+import { answerRecapQuestionFromSafeEvents } from './service';
 import type { SpoilerSafePlotEventResult } from './types';
+import type { RecapRequestDependencies } from './endpoint';
 
-interface RecapRequestBody {
+interface RecapQuestionRequestBody {
   showId: number;
   targetEpisodeId: string;
+  question: string;
 }
 
-export interface RecapRequestDependencies {
-  authenticate(request: Request): Promise<AuthenticatedRecapContext | null>;
-  getShow(showId: number): Promise<TVShowDetails | null>;
-  getEpisode(episodeId: string): Promise<Episode | null>;
-  supportsShow(show: TVShowDetails): boolean;
-  retrieve(
-    context: AuthenticatedRecapContext,
-    show: TVShowDetails,
-    targetEpisode: Episode
-  ): Promise<SpoilerSafePlotEventResult>;
-}
-
-export interface RecapEndpointDependencies extends RecapRequestDependencies {
-  generator: RecapGenerator;
+export interface RecapQuestionEndpointDependencies extends RecapRequestDependencies {
+  generator: RecapQuestionGenerator;
 }
 
 const json = (body: object, status = 200): Response => Response.json(body, { status });
 
-const parseBody = async (request: Request): Promise<RecapRequestBody | null> => {
+const parseBody = async (request: Request): Promise<RecapQuestionRequestBody | null> => {
   try {
     const body: unknown = await request.json();
     if (typeof body !== 'object' || body === null) return null;
 
-    const { showId, targetEpisodeId } = body as Partial<RecapRequestBody>;
+    const { showId, targetEpisodeId, question } = body as Partial<RecapQuestionRequestBody>;
+    const trimmedQuestion = typeof question === 'string' ? question.trim() : '';
     if (
       typeof showId !== 'number' ||
       !Number.isInteger(showId) ||
       typeof targetEpisodeId !== 'string' ||
-      !targetEpisodeId.trim()
+      !targetEpisodeId.trim() ||
+      !trimmedQuestion ||
+      trimmedQuestion.length > 1000
     ) {
       return null;
     }
 
-    return { showId, targetEpisodeId: targetEpisodeId.trim() };
+    return {
+      showId,
+      targetEpisodeId: targetEpisodeId.trim(),
+      question: trimmedQuestion,
+    };
   } catch {
     return null;
   }
 };
 
-export const handleRecapRequest = async (
+export const handleRecapQuestionRequest = async (
   request: Request,
-  dependencies: RecapEndpointDependencies
+  dependencies: RecapQuestionEndpointDependencies
 ): Promise<Response> => {
   if (request.method !== 'POST') {
-    return json({ error: 'Only POST is supported for recap generation.' }, 405);
+    return json({ error: 'Only POST is supported for recap questions.' }, 405);
   }
 
   let context: AuthenticatedRecapContext | null;
@@ -70,7 +65,13 @@ export const handleRecapRequest = async (
 
   const body = await parseBody(request);
   if (!body) {
-    return json({ error: 'Request body must include showId and targetEpisodeId.' }, 400);
+    return json(
+      {
+        error:
+          'Request body must include showId, targetEpisodeId, and question (max 1000 characters).',
+      },
+      400
+    );
   }
 
   const show = await dependencies.getShow(body.showId);
@@ -95,14 +96,15 @@ export const handleRecapRequest = async (
   }
 
   try {
-    const generated = await generateRecapFromSafeEvents({
+    const generated = await answerRecapQuestionFromSafeEvents({
       generator: dependencies.generator,
       show,
       boundary: retrieved.boundary,
       events: retrieved.events,
+      question: body.question,
     });
 
-    return json({ recap: generated.text });
+    return json({ answer: generated.text });
   } catch (error) {
     if (error instanceof Error && error.name === 'RecapProviderNotConfiguredError') {
       return json(
@@ -114,6 +116,6 @@ export const handleRecapRequest = async (
       );
     }
 
-    return json({ error: 'Unable to generate recap.' }, 502);
+    return json({ error: 'Unable to answer recap question.' }, 502);
   }
 };

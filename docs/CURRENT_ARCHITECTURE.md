@@ -2,7 +2,7 @@
 
 ## Scope
 
-CatchUp is a Next.js streaming-platform prototype. The current foundation uses a fully controlled local catalog, an interactive demo player, deterministic spoiler-safe narrative retrieval, and a server-side recap generation endpoint. Catch Me Up UI, follow-up Q&A, friends, recommendations, progress sharing, and Watch Together remain unimplemented.
+CatchUp is a Next.js streaming-platform prototype. The current foundation uses a fully controlled local catalog, an interactive demo player, deterministic spoiler-safe narrative retrieval, server-side recap and follow-up Q&A endpoints, and the Catch Me Up UI. Friends, recommendations, progress sharing, and Watch Together remain unimplemented.
 
 ## Tech stack
 
@@ -19,7 +19,7 @@ src/components/          Shared shell, rows/cards, actions, recap dialog, and re
 src/hooks/               My List, likes, Continue Watching, and episode progress hooks
 src/lib/catalog.ts       Controlled local catalog and catalog adapter functions
 src/lib/supabase/        Supabase browser client, config guard, and database types
-src/lib/recaps/          Plot events, boundary/retrieval logic, provider adapters, and recap endpoint coordination
+src/lib/recaps/          Plot events, boundary/retrieval logic, provider adapters, and recap/Q&A endpoint coordination
 public/demo/             Locally controlled poster/backdrop SVG artwork
 supabase-schema.sql      Current/future-ready Supabase schema and RLS policies
 docs/                    Product, architecture, database, AI, social, and party specs
@@ -68,9 +68,9 @@ The current schema includes `profiles`, `my_list`, `liked_items`, and the expand
 
 The schema also creates future-ready, RLS-enabled tables for `episode_plot_events`, `friendships`, `show_recommendations`, `progress_shares`, `watch_parties`, `watch_party_members`, and `watch_party_events`. `episode_plot_events` now has show/season/episode metadata, event text, involved characters, importance, and tags; legacy narrative columns remain nullable for compatibility. Future tables intentionally have no permissive client policies until their features are implemented.
 
-The server-side recap endpoint currently uses the local `Echoes of Orion` events as its controlled source. It does not expose plot-event rows to the client or add client policies for the server-managed table.
+The server-side recap and question endpoints currently use the local `Echoes of Orion` events as their controlled source. They do not expose plot-event rows to the client or add client policies for the server-managed table.
 
-Catch Me Up is presented by `CatchMeUpButton` in the show’s main action area and episode cards. It waits for authenticated progress to finish loading before showing an action, calls `/api/recap` with only the target identifiers and bearer token, and displays a focused responsive dialog with loading, recap, empty, authentication, error, retry, and playback actions.
+Catch Me Up is presented by `CatchMeUpButton` in the show’s main action area and episode cards. It waits for authenticated progress to finish loading before showing an action, calls `/api/recap` with only the target identifiers and bearer token, and displays a focused responsive dialog with loading, recap, empty, authentication, error, retry, and playback actions. After a recap, the same dialog calls `/api/recap/question` with the target identifiers, question, and bearer token; the server reruns the same spoiler-safe retrieval and returns only an answer.
 
 ## Watch progress and Continue Watching
 
@@ -135,5 +135,5 @@ For generated recaps, add the server-only `ANTHROPIC_API_KEY` to `.env.local` or
 1. Apply the schema with a test Supabase project and verify signup, episode progress, reload/resume, completion, and Continue Watching with two users.
 2. Add automated tests for progress clamping, debouncing/flush behavior, episode resolution, completion, and RLS isolation.
 3. Decide whether the catalog remains code-controlled for the prototype or moves to managed content tables.
-4. Add spoiler-safe follow-up Q&A using the same server-side retrieval contract.
-5. Implement explicit per-show progress sharing and friends only after private progress semantics are stable.
+4. Implement explicit per-show progress sharing and friends only after private progress semantics are stable.
+5. Add Watch Together only after social permissions and playback contracts are stable.

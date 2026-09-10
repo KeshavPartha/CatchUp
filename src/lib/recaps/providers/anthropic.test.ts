@@ -95,4 +95,39 @@ describe('Anthropic recap provider', () => {
 
     await expect(generator.generate(request)).rejects.toThrow('ANTHROPIC_API_KEY');
   });
+
+  test('answers only from safe events and refuses future-plot requests in its instructions', async () => {
+    vi.stubEnv('CATCHUP_RECAP_PROVIDER', 'anthropic');
+    vi.stubEnv('ANTHROPIC_API_KEY', 'test-anthropic-key');
+    vi.stubEnv('ANTHROPIC_MODEL', 'claude-test-model');
+
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      new Response(
+        JSON.stringify({
+          content: [{ type: 'text', text: 'That is not knowable from what you have watched yet.' }],
+        }),
+        { status: 200 }
+      )
+    );
+
+    const generator = createRecapGeneratorFromEnvironment();
+    const result = await generator.answerQuestion({
+      showName: 'Echoes of Orion',
+      boundary: request.boundary,
+      events: request.events,
+      question: 'What happens in the next episode?',
+    });
+    const [, options] = fetchMock.mock.calls[0];
+    const body = JSON.parse(String(options?.body)) as {
+      system: string;
+      messages: Array<{ content: string }>;
+    };
+
+    expect(result.text).toBe('That is not knowable from what you have watched yet.');
+    expect(body.system).toContain('do not answer or hint at any of that');
+    expect(body.system).toContain('not knowable from what the user has watched yet');
+    expect(body.messages[0].content).toContain('What happens in the next episode?');
+    expect(body.messages[0].content).toContain('show-1001-s1-e1');
+    expect(body.messages[0].content).not.toContain('show-1001-s1-e2');
+  });
 });

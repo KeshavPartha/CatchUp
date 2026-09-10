@@ -15,11 +15,30 @@ export interface GeneratedRecap {
   model: string | null;
 }
 
+export interface RecapQuestionGenerationRequest {
+  showName: string;
+  boundary: RecapBoundary;
+  events: PlotEvent[];
+  question: string;
+}
+
+export interface GeneratedRecapAnswer {
+  text: string;
+  provider: string;
+  model: string | null;
+}
+
 export interface RecapGenerator {
   generate(request: RecapGenerationRequest): Promise<GeneratedRecap>;
 }
 
-export const createRecapGeneratorFromEnvironment = (): RecapGenerator => {
+export interface RecapQuestionGenerator {
+  answerQuestion(request: RecapQuestionGenerationRequest): Promise<GeneratedRecapAnswer>;
+}
+
+export type RecapProvider = RecapGenerator & RecapQuestionGenerator;
+
+export const createRecapGeneratorFromEnvironment = (): RecapProvider => {
   const provider = process.env.CATCHUP_RECAP_PROVIDER ?? 'anthropic';
 
   if (provider === 'anthropic') {
@@ -29,6 +48,11 @@ export const createRecapGeneratorFromEnvironment = (): RecapGenerator => {
         async generate(): Promise<GeneratedRecap> {
           throw new RecapProviderNotConfiguredError(
             'Set the server-only ANTHROPIC_API_KEY before generating a recap.'
+          );
+        },
+        async answerQuestion() {
+          throw new RecapProviderNotConfiguredError(
+            'Set the server-only ANTHROPIC_API_KEY before answering recap questions.'
           );
         },
       };
@@ -44,6 +68,11 @@ export const createRecapGeneratorFromEnvironment = (): RecapGenerator => {
         async generate(): Promise<GeneratedRecap> {
           throw new RecapProviderNotConfiguredError(
             'Set the server-only OPENAI_API_KEY before generating a recap.'
+          );
+        },
+        async answerQuestion() {
+          throw new RecapProviderNotConfiguredError(
+            'Set the server-only OPENAI_API_KEY before answering recap questions.'
           );
         },
       };

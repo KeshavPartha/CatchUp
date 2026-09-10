@@ -2,7 +2,7 @@
 
 ## Status
 
-The narrative event model, deterministic spoiler-boundary retrieval foundation, server-side recap endpoint, and user-facing Catch Me Up UI are implemented. The endpoint and UI support the `Echoes of Orion` demo show. A provider abstraction with an Anthropic default and optional OpenAI adapter is present; follow-up Q&A is not implemented.
+The narrative event model, deterministic spoiler-boundary retrieval foundation, server-side recap and follow-up question endpoints, and user-facing Catch Me Up UI are implemented. The endpoints and UI support the `Echoes of Orion` demo show. A provider abstraction with an Anthropic default and optional OpenAI adapter is present.
 
 ## V1 episode boundary
 
@@ -19,17 +19,17 @@ Example: if a user completed S1E1–S1E18 and partially watched S1E19, a recap b
 
 The deterministic retrieval service accepts the authenticated user ID, show, target episode, a watch-progress reader, and structured plot events. It reads only the requesting user’s TV progress, computes the ordered completed-episode boundary, and returns events whose episode IDs are in the allowed set. It must never return target or future events to a recap or Q&A generation layer.
 
-The generation layer receives only the retrieval result, never an unrestricted plot-event query. The `POST /api/recap` endpoint accepts only `showId` and `targetEpisodeId`; client-supplied plot events are ignored. It authenticates the bearer token with Supabase, invokes the existing retrieval service, and passes only its safe events into the provider. If the boundary or source data is ambiguous, it fails closed. Supabase RLS remains the database authorization boundary, and the service also filters returned progress by the requested user and show.
+The generation layer receives only the retrieval result, never an unrestricted plot-event query. The `POST /api/recap` endpoint accepts only `showId` and `targetEpisodeId`; `POST /api/recap/question` accepts only those identifiers and a question up to 1000 characters. Client-supplied plot events are ignored. Both endpoints authenticate the bearer token with Supabase, invoke the existing retrieval service, and pass only its safe events into the provider. If the boundary or source data is ambiguous, they fail closed. Supabase RLS remains the database authorization boundary, and the service also filters returned progress by the requested user and show.
 
 ## Server-side generation
 
 `src/lib/recaps/generator.ts` defines the provider-independent `RecapGenerator` contract. Anthropic Claude is the default provider through a server-side Messages API `fetch` adapter; OpenAI remains available only when explicitly selected. The Anthropic API key is read only from `ANTHROPIC_API_KEY`; it is never prefixed with `NEXT_PUBLIC_` or sent to the browser. A missing provider returns a clear `503` configuration response. Users with no eligible events receive a deterministic empty-state response without calling the provider.
 
-The provider prompt receives the show name, the computed boundary, and a serialized list of already-filtered events. It must produce concise plain text using only those events and must not infer future information. The public endpoint response contains only recap text; boundaries, source episode IDs, provider metadata, prompts, and credentials remain server-side.
+The provider prompt receives the show name, the computed boundary, and a serialized list of already-filtered events. Recap and question prompts also explicitly refuse future-plot requests and require an “not knowable from what you have watched yet” response when the safe events do not answer the question. The public endpoint responses contain only recap text or an answer; boundaries, source episode IDs, provider metadata, prompts, and credentials remain server-side.
 
 ## Catch Me Up UI
 
-On a TV show detail page, Catch Me Up appears beside the main Play/Resume action when authenticated progress has loaded and at least one completed prior episode is eligible. Eligible episode rows expose the same action for that target episode. The focused dialog shows the target context, loading state, recap text, retry/error state, and a Start/Resume episode action. The client sends only `showId`, `targetEpisodeId`, and the current Supabase access token; it does not retrieve or display plot events, source episode IDs, provider metadata, prompts, or API tokens.
+On a TV show detail page, Catch Me Up appears beside the main Play/Resume action when authenticated progress has loaded and at least one completed prior episode is eligible. Eligible episode rows expose the same action for that target episode. The focused dialog shows the target context, loading state, recap text, retry/error state, and a Start/Resume episode action. After a recap is shown, a lightweight question form supports multiple question/answer pairs in the same modal session. Each question uses the same target episode and spoiler boundary. The client sends only identifiers, the question, and the current Supabase access token; it does not retrieve or display plot events, source episode IDs, provider metadata, prompts, or API tokens.
 
 ## Temporary invocation
 
@@ -43,6 +43,15 @@ curl -X POST http://localhost:3000/api/recap \
 ```
 
 The access token must belong to a signed-in Supabase user. The request must not include plot events; the server ignores client-supplied event data.
+
+Follow-up questions use the same token and boundary:
+
+```bash
+curl -X POST http://localhost:3000/api/recap/question \
+  -H "Authorization: Bearer $SUPABASE_ACCESS_TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"showId":1001,"targetEpisodeId":"show-1001-s1-e2","question":"Who is Ilya?"}'
+```
 
 ## Narrative event model
 
@@ -59,9 +68,9 @@ The repository currently includes a complete local event dataset for all six epi
 
 Return a concise, plot-relevant recap of the eligible watched material. Prioritize unresolved context, important characters, relationships, and events needed to resume. Omit trivia and future material. Identify the episode boundary used.
 
-## Future Q&A behavior
+## Follow-up Q&A behavior
 
-Every question is answered against the same episode-bounded retrieval scope. If the answer requires future information, say that it cannot be answered yet rather than hinting at it. Test questions that tempt the system to reveal later plot points.
+Every question is answered against the same episode-bounded retrieval scope as the recap. If the answer requires future information, say that it cannot be answered yet rather than hinting at it. Adversarial questions that request future deaths, next-episode events, betrayals, or later-season outcomes must not receive future information.
 
 ## Future acceptance criteria
 

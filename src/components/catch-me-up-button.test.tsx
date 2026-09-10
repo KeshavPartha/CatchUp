@@ -104,4 +104,55 @@ describe('CatchMeUpButton', () => {
     expect(screen.queryByText('anthropic')).not.toBeInTheDocument();
     await waitFor(() => expect(fetchMock).toHaveBeenCalledOnce());
   });
+
+  test('asks multiple questions and keeps the question history in the modal', async () => {
+    const fetchMock = vi
+      .mocked(fetch)
+      .mockResolvedValueOnce(responseFor({ recap: 'The crew follows an impossible signal.' }))
+      .mockResolvedValueOnce(responseFor({ answer: 'Ilya navigates the Wayfinder.' }))
+      .mockResolvedValueOnce(
+        responseFor({ answer: 'Mara follows the signal to find its source.' })
+      );
+
+    render(createElement(CatchMeUpButton, { showId: show.id, targetEpisode }));
+    fireEvent.click(screen.getByRole('button', { name: /catch me up before/i }));
+    expect(await screen.findByText('The crew follows an impossible signal.')).toBeInTheDocument();
+
+    const input = screen.getByLabelText('Ask about what you’ve watched');
+    fireEvent.change(input, { target: { value: 'Who is Ilya?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    expect(await screen.findByText('Ilya navigates the Wayfinder.')).toBeInTheDocument();
+
+    fireEvent.change(input, { target: { value: 'Why did Mara follow the signal?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    expect(
+      await screen.findByText('Mara follows the signal to find its source.')
+    ).toBeInTheDocument();
+    expect(screen.getByText('Who is Ilya?')).toBeInTheDocument();
+    expect(screen.getByText('Why did Mara follow the signal?')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  test('shows a Q&A error and retries the last question', async () => {
+    const fetchMock = vi
+      .mocked(fetch)
+      .mockResolvedValueOnce(responseFor({ recap: 'The crew follows an impossible signal.' }))
+      .mockResolvedValueOnce(responseFor({ error: 'Question service unavailable.' }, 502))
+      .mockResolvedValueOnce(responseFor({ answer: 'Ilya navigates the Wayfinder.' }));
+
+    render(createElement(CatchMeUpButton, { showId: show.id, targetEpisode }));
+    fireEvent.click(screen.getByRole('button', { name: /catch me up before/i }));
+    expect(await screen.findByText('The crew follows an impossible signal.')).toBeInTheDocument();
+
+    const input = screen.getByLabelText('Ask about what you’ve watched');
+    fireEvent.change(input, { target: { value: 'Who is Ilya?' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Ask' }));
+    expect(
+      await screen.findByText('Catch Me Up could not answer that right now.')
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Retry' }));
+    expect(await screen.findByText('Ilya navigates the Wayfinder.')).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
 });

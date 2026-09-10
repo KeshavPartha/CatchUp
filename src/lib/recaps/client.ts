@@ -21,6 +21,7 @@ interface RecapClientRequest {
 
 interface RecapClientResponse {
   recap?: unknown;
+  answer?: unknown;
   error?: unknown;
 }
 
@@ -61,4 +62,49 @@ export const requestRecap = async ({
   }
 
   return { recap: payload.recap };
+};
+
+interface RecapQuestionClientRequest {
+  showId: number;
+  targetEpisodeId: string;
+  question: string;
+  getAccessToken(): Promise<string | null>;
+  fetcher?: typeof fetch;
+}
+
+export const requestRecapQuestion = async ({
+  showId,
+  targetEpisodeId,
+  question,
+  getAccessToken,
+  fetcher = fetch,
+}: RecapQuestionClientRequest): Promise<{ answer: string }> => {
+  const accessToken = await getAccessToken();
+  if (!accessToken) throw new RecapClientAuthenticationError();
+
+  const response = await fetcher('/api/recap/question', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ showId, targetEpisodeId, question }),
+  });
+
+  const payload: unknown = await response.json().catch(() => null);
+  if (!response.ok) {
+    if (response.status === 401) throw new RecapClientAuthenticationError();
+
+    const message =
+      isRecapClientResponse(payload) && typeof payload.error === 'string'
+        ? payload.error
+        : undefined;
+    throw new RecapClientRequestError(message);
+  }
+
+  if (!isRecapClientResponse(payload) || typeof payload.answer !== 'string') {
+    throw new RecapClientRequestError();
+  }
+
+  return { answer: payload.answer };
 };
