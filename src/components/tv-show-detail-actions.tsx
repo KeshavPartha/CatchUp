@@ -8,6 +8,7 @@ import { useLikedItems } from '@/hooks/use-liked-items';
 import { TrailerModal } from './trailer-modal';
 import { RecommendButton } from '@/components/social/recommend-button';
 import { ShareProgressControl } from '@/components/social/share-progress-control';
+import { WatchTogetherButton } from '@/components/social/watch-together-button';
 import { FriendProgressStrip } from '@/components/social/friend-progress-strip';
 
 interface TVShowDetailActionsProps {
@@ -82,6 +83,7 @@ export function TVShowDetailActions({ showId, showTitle, trailerKey }: TVShowDet
         </button>
         <RecommendButton mediaId={showId} mediaType="tv" title={showTitle} />
         <ShareProgressControl mediaId={showId} mediaType="tv" title={showTitle} />
+        <WatchTogetherButton mediaId={showId} mediaType="tv" title={showTitle} />
       </div>
 
       <FriendProgressStrip mediaId={showId} mediaType="tv" />

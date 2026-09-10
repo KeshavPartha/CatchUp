@@ -36,9 +36,10 @@ decision below.
 | Friend graph (migration 001) | Implemented. Applies cleanly; 52 assertions pass. |
 | Recommendations (migration 002) | Implemented. 24 assertions pass. |
 | Per-title progress sharing (migration 003) | Implemented. 30 assertions pass. |
-| RLS privacy suites | 106 assertions across 3 suites, `npm run test:rls`. |
+| Watch Together sessions (migration 004) | Implemented. 41 assertions pass. |
+| RLS privacy suites | 147 assertions across 4 suites, `npm run test:rls`. |
 | Social repository, hooks, UI | Implemented; typechecks, lints and builds clean. |
-| Watch Together | Not started. Blocked — see §9. |
+| Watch Together video surface | **Not connected** — see §9.1. |
 
 All three migrations have been verified against a scratch PostgreSQL database
 built from the current `supabase-schema.sql`. **They have not been applied to a
@@ -309,29 +310,37 @@ on the same mechanism for playback synchronization. `friendships` carries
 
 ## 9. Planned work
 
-### 9.1 Watch Together — the remaining milestone
+### 9.1 Watch Together — the video surface
 
-Everything above is the authorization substrate this sits on. `friendships` is
-the invite ACL, reusing the same `are_friends()` the other policies call, so
-there is no second authorization model. `progress_shares` informs the join
-experience — "you're three episodes behind" before joining, and the handoff to
-Catch Me Up that the vision's connected journey describes.
+Everything except the video is built and tested: sessions, invitations,
+participants, presence, the authorization model, and two-transport playback
+synchronization.
 
-Shape: `watch_sessions` (host, media, episode, playback state, position,
-`updated_at`) and `watch_session_participants`, with participant-only RLS.
+Every transition goes out twice — over Realtime **broadcast**, which lands in
+tens of milliseconds and never touches the database, and through
+`update_playback_state`, which commits it durably. Broadcast alone desyncs
+anyone who reloads; persistence alone makes every pause feel laggy. Neither is
+sufficient alone. `position_seconds` is paired with `position_updated_at` so a
+late joiner derives the live position rather than needing a continuous stream to
+stay honest.
 
-Playback sync should ride Realtime **broadcast + presence** for the
-high-frequency events (play/pause/seek/heartbeat), with the Postgres row as
-durable state for late joiners and reconnects. Persisting every tick would
-hammer the database for no benefit.
+`useWatchSession` holds no reference to a video element. It exposes intended
+state (`livePosition()`, `isPlaying`) and accepts commands, and `SyncTransport`
+is the seam a player plugs into.
 
-**Blocked on two things outside this workstream:**
+**What is not decided: what gets synchronized.** CatchUp only plays YouTube
+trailers today, and `video-player.tsx` is an unused HTML5 `<video>` with no
+source. The options are roughly:
 
-1. **Real playback.** `video-player.tsx` is unused and the app only plays
-   trailers. There is nothing to synchronize yet.
-2. **Session refresh.** `@supabase/auth-helpers-nextjs` has no session-refresh
-   strategy (§7.2). Long-lived sessions make that a real failure mode rather
-   than a latent one.
+1. **YouTube IFrame API** on the trailers the app already has. No new content,
+   but it adds an external script and its own player lifecycle.
+2. **A hosted sample file** through the existing `VideoPlayer`. Simplest to
+   synchronize and fully self-contained, but the content is a stand-in.
+3. **Leave it.** The session room is honest about the surface being
+   unconnected, and the sync is demonstrable in two browsers today.
+
+This is a product decision about content, not a social-layer one, so it has not
+been made here.
 
 ### 9.2 Smaller follow-ups
 

@@ -12,6 +12,7 @@ import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { AddFriendSearch } from '@/components/social/add-friend-search';
 import { RecommendationInbox } from '@/components/social/recommendation-inbox';
 import { PrivacyCentre } from '@/components/social/privacy-centre';
+import { WatchSessionBanner } from '@/components/social/watch-session-banner';
 import { useRecommendations } from '@/hooks/use-recommendations';
 
 type Tab = 'friends' | 'recommendations' | 'requests' | 'sharing' | 'add';
@@ -126,6 +127,8 @@ export default function FriendsPage() {
             a specific show, and you can stop sharing it at any time.
           </span>
         </p>
+
+        <WatchSessionBanner />
 
         <div
           role="tablist"
