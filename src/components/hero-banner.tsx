@@ -3,8 +3,8 @@
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { Play, Info } from 'lucide-react';
-import { Movie } from '@/lib/tmdb';
-import { getBackdropUrl } from '@/lib/tmdb';
+import { Movie } from '@/lib/catalog';
+import { getBackdropUrl } from '@/lib/catalog';
 
 interface HeroBannerProps {
   movie: Movie;
@@ -85,4 +85,3 @@ export function HeroBanner({ movie }: HeroBannerProps) {
     </div>
   );
 }
-

@@ -5,7 +5,7 @@ import {
   getTopRatedMovies,
   getUpcomingMovies,
   getNowPlayingMovies,
-} from '@/lib/tmdb';
+} from '@/lib/catalog';
 
 export default async function MoviesPage() {
   // Fetch all movie data in parallel
@@ -30,7 +30,7 @@ export default async function MoviesPage() {
       {/* Movie Rows */}
       <div className="space-y-8 pb-16">
         <MovieRow title="Trending Now" movies={trending} />
-        <MovieRow title="Popular on Netflix" movies={popular} />
+        <MovieRow title="Popular picks" movies={popular} />
         <MovieRow title="Top Rated" movies={topRated} />
         <MovieRow title="Coming Soon" movies={upcoming} />
         <MovieRow title="Now Playing" movies={nowPlaying} />
@@ -38,4 +38,3 @@ export default async function MoviesPage() {
     </main>
   );
 }
-

@@ -51,7 +51,7 @@ export function Header() {
         {/* Logo and Navigation */}
         <div className="flex items-center gap-8">
           <Link href="/" className="text-netflix-red text-2xl font-bold">
-            NETFLIX
+            CatchUp
           </Link>
 
           <nav className="hidden md:flex items-center gap-6">
@@ -156,4 +156,3 @@ export function Header() {
     </header>
   );
 }
-

@@ -5,7 +5,7 @@ import {
   getTopRatedTVShows,
   getAiringTodayTVShows,
   getOnTheAirTVShows,
-} from '@/lib/tmdb';
+} from '@/lib/catalog';
 
 export default async function TVShowsPage() {
   // Fetch all TV show data in parallel
@@ -30,7 +30,7 @@ export default async function TVShowsPage() {
       {/* TV Show Rows */}
       <div className="space-y-8 pb-16">
         <TVShowRow title="Trending Now" shows={trending} />
-        <TVShowRow title="Popular on Netflix" shows={popular} />
+        <TVShowRow title="Popular picks" shows={popular} />
         <TVShowRow title="Top Rated" shows={topRated} />
         <TVShowRow title="Airing Today" shows={airingToday} />
         {onTheAir && onTheAir.length > 0 && (
@@ -40,4 +40,3 @@ export default async function TVShowsPage() {
     </main>
   );
 }
-

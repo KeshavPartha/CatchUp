@@ -2,8 +2,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 
-const STORAGE_KEY = 'netflix_liked_items';
+const STORAGE_KEY = 'catchup_liked_items';
 
 interface LikedItem {
   id: string;
@@ -44,6 +45,13 @@ export function useLikedItems() {
     const localLikes = getLocalLikes();
     if (localLikes.length > 0) {
       setLikedItems(localLikes);
+    }
+
+    if (!isSupabaseConfigured) {
+      setLoading(false);
+      return () => {
+        isMounted = false;
+      };
     }
 
     const supabase = createClient();
@@ -171,7 +179,7 @@ export function useLikedItems() {
     const supabase = createClient();
     const { error } = await supabase
       .from('liked_items')
-      .insert({ media_id: mediaId, media_type: mediaType, user_id: userId } as any);
+      .insert({ media_id: mediaId, media_type: mediaType, user_id: userId });
 
     if (error) {
       // Rollback on error
@@ -196,4 +204,3 @@ export function useLikedItems() {
     isAuthenticated: !!userId,
   };
 }
-

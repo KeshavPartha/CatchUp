@@ -2,9 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { Movie } from '@/lib/tmdb';
+import { Movie } from '@/lib/catalog';
 import { MovieCard } from './movie-card';
-import { cn } from '@/lib/utils';
 
 interface MovieRowProps {
   title: string;
@@ -85,4 +84,3 @@ export function MovieRow({ title, movies }: MovieRowProps) {
     </div>
   );
 }
-

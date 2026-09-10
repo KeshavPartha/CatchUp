@@ -10,9 +10,9 @@ import { ErrorBoundary } from '@/components/error-boundary';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata: Metadata = {
-  title: 'Netflix Clone - Watch Movies & TV Shows Online',
-  description: 'A modern Netflix clone built with Next.js, TypeScript, and Supabase',
-  keywords: ['netflix', 'movies', 'tv shows', 'streaming', 'entertainment'],
+  title: 'CatchUp - Return to Your Shows',
+  description: 'A privacy-conscious streaming prototype for returning to shows with context.',
+  keywords: ['CatchUp', 'shows', 'episodes', 'watch progress'],
 };
 
 export default function RootLayout({
@@ -35,4 +35,3 @@ export default function RootLayout({
     </html>
   );
 }
-

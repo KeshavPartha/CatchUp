@@ -2,9 +2,8 @@
 
 import { useRef, useState } from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
-import { TVShow } from '@/lib/tmdb';
+import { TVShow } from '@/lib/catalog';
 import { TVShowCard } from './tv-show-card';
-import { cn } from '@/lib/utils';
 
 interface TVShowRowProps {
   title: string;
@@ -85,4 +84,3 @@ export function TVShowRow({ title, shows }: TVShowRowProps) {
     </div>
   );
 }
-
