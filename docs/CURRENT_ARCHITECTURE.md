@@ -19,7 +19,7 @@ src/components/          Shared shell, rows/cards, actions, and reusable demo pl
 src/hooks/               My List, likes, Continue Watching, and episode progress hooks
 src/lib/catalog.ts       Controlled local catalog and catalog adapter functions
 src/lib/supabase/        Supabase browser client, config guard, and database types
-src/lib/recaps/          Plot events, boundary/retrieval logic, provider abstraction, and recap endpoint coordination
+src/lib/recaps/          Plot events, boundary/retrieval logic, provider adapters, and recap endpoint coordination
 public/demo/             Locally controlled poster/backdrop SVG artwork
 supabase-schema.sql      Current/future-ready Supabase schema and RLS policies
 docs/                    Product, architecture, database, AI, social, and party specs
@@ -111,11 +111,11 @@ The controlled catalog needs no external content account. For accounts and durab
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
-CATCHUP_RECAP_PROVIDER=openai
-OPENAI_MODEL=gpt-4o-mini
+CATCHUP_RECAP_PROVIDER=anthropic
+ANTHROPIC_MODEL=claude-sonnet-5
 ```
 
-For generated recaps, add the server-only `OPENAI_API_KEY` to `.env.local` or the deployment environment. Never use a `NEXT_PUBLIC_` prefix for it. Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the hosted project was initialized from the original starter SQL, run `supabase/migrations/20260910_watch_progress_foundation.sql` to add or upgrade `watch_progress` without rebuilding unrelated tables. Configure the local/deployed auth URLs. No service-role key is needed by the current code.
+For generated recaps, add the server-only `ANTHROPIC_API_KEY` to `.env.local` or the deployment environment. Never use a `NEXT_PUBLIC_` prefix for it. `ANTHROPIC_MODEL` defaults to `claude-sonnet-5` and can be changed without code changes. Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the hosted project was initialized from the original starter SQL, run `supabase/migrations/20260910_watch_progress_foundation.sql` to add or upgrade `watch_progress` without rebuilding unrelated tables. Configure the local/deployed auth URLs. No service-role key is needed by the current code.
 
 ## Technical risks
 
