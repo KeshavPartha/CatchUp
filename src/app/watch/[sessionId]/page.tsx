@@ -8,6 +8,7 @@ import { ArrowLeft, Circle, Film, LogOut, UserPlus, Users2, Wifi, WifiOff } from
 import { cn } from '@/lib/utils';
 import { FriendAvatar } from '@/components/social/friend-avatar';
 import { SyncTransport } from '@/components/social/sync-transport';
+import { YouTubeSyncPlayer } from '@/components/social/youtube-sync-player';
 import { showToast } from '@/components/toast';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useWatchSession } from '@/hooks/use-watch-session';
@@ -19,7 +20,14 @@ import {
   socialErrorMessage,
   type WatchSessionTarget,
 } from '@/lib/social';
-import { getBackdropUrl, getMovieDetails, getTVShowDetails } from '@/lib/tmdb';
+import {
+  getBackdropUrl,
+  getMovieDetails,
+  getMovieVideos,
+  getTVShowDetails,
+  getTVShowVideos,
+  type Video,
+} from '@/lib/tmdb';
 
 /** Fallback runtime when TMDB has none, so the timeline still scales sensibly. */
 const DEFAULT_RUNTIME_SECONDS = 45 * 60;
@@ -28,6 +36,13 @@ interface TitleInfo {
   title: string;
   backdropPath: string | null;
   durationSeconds: number;
+  /** YouTube key of the trailer being synchronized, when one exists. */
+  trailerKey: string | null;
+}
+
+/** The first official YouTube trailer, matching how detail pages pick one. */
+function pickTrailer(videos: Video[]): string | null {
+  return videos.find((v) => v.type === 'Trailer' && v.site === 'YouTube')?.key ?? null;
 }
 
 export default function WatchSessionPage() {
@@ -54,6 +69,9 @@ export default function WatchSessionPage() {
   } = useWatchSession(sessionId);
 
   const [info, setInfo] = useState<TitleInfo | null>(null);
+  // The player reports the real runtime once loaded; until then the nominal
+  // value only has to be good enough to scale the timeline.
+  const [playerDuration, setPlayerDuration] = useState<number | null>(null);
   const [targets, setTargets] = useState<WatchSessionTarget[]>([]);
   const [showInvite, setShowInvite] = useState(false);
 
@@ -79,17 +97,24 @@ export default function WatchSessionPage() {
     const load = async () => {
       try {
         if (session.mediaType === 'movie') {
-          const details = await getMovieDetails(session.mediaId);
+          const [details, videos] = await Promise.all([
+            getMovieDetails(session.mediaId),
+            getMovieVideos(session.mediaId).catch((): Video[] => []),
+          ]);
           if (!isMounted) return;
           setInfo({
             title: details.title,
             backdropPath: details.backdrop_path,
             durationSeconds: (details.runtime || 0) * 60 || DEFAULT_RUNTIME_SECONDS,
+            trailerKey: pickTrailer(videos),
           });
           return;
         }
 
-        const details = await getTVShowDetails(session.mediaId);
+        const [details, videos] = await Promise.all([
+          getTVShowDetails(session.mediaId),
+          getTVShowVideos(session.mediaId).catch((): Video[] => []),
+        ]);
         if (!isMounted) return;
         setInfo({
           title: details.name,
@@ -97,9 +122,9 @@ export default function WatchSessionPage() {
           // TMDB returns episode_run_time, but `TVShowDetails` in lib/tmdb.ts
           // does not declare it, and that file is shared with the other
           // workstream -- reshaping it for a social feature is not this
-          // workstream's call. The nominal runtime only scales the timeline,
-          // so the fallback costs nothing until episode-level data lands.
+          // workstream's call. The player reports the real duration anyway.
           durationSeconds: DEFAULT_RUNTIME_SECONDS,
+          trailerKey: pickTrailer(videos),
         });
       } catch {
         if (isMounted) {
@@ -107,6 +132,7 @@ export default function WatchSessionPage() {
             title: 'Unavailable title',
             backdropPath: null,
             durationSeconds: DEFAULT_RUNTIME_SECONDS,
+            trailerKey: null,
           });
         }
       }
@@ -181,42 +207,64 @@ export default function WatchSessionPage() {
         </Link>
 
         {/*
-          The video surface. CatchUp only plays YouTube trailers today, and what
-          gets synchronized is a content decision rather than a social one, so
-          no player is bound yet -- the transport below is fully wired and the
-          adapter slots in here. See use-watch-session.ts.
+          The video surface. CatchUp's only playable content is YouTube
+          trailers, so that is what a session synchronizes. The player is an
+          adapter over `useWatchSession` -- it holds the sync logic for one
+          media source and nothing about the session model, so swapping in a
+          different source later touches only this component.
         */}
-        <div className="relative mb-4 aspect-video overflow-hidden rounded-lg bg-netflix-black">
-          {info?.backdropPath && (
-            <Image
-              src={getBackdropUrl(info.backdropPath)}
-              alt=""
-              fill
-              sizes="(max-width: 896px) 100vw, 896px"
-              className="object-cover opacity-30"
-              priority
+        {info?.trailerKey ? (
+          <div className="mb-4">
+            <YouTubeSyncPlayer
+              videoKey={info.trailerKey}
+              session={session}
+              disabled={ended}
+              onPlay={play}
+              onPause={pause}
+              onDuration={setPlayerDuration}
             />
-          )}
-          <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
-            <Film className="mb-3 h-10 w-10 text-netflix-lightGray" />
-            <h1 className="text-xl font-bold md:text-2xl">{info?.title ?? 'Loading...'}</h1>
-            <p className="mt-2 max-w-md text-sm text-netflix-lightGray">
-              Playback is synchronized across everyone here. The video surface is not connected
-              yet — the controls below are live and stay in step for all participants.
-            </p>
+          </div>
+        ) : (
+          <div className="relative mb-4 aspect-video overflow-hidden rounded-lg bg-netflix-black">
+            {info?.backdropPath && (
+              <Image
+                src={getBackdropUrl(info.backdropPath)}
+                alt=""
+                fill
+                sizes="(max-width: 896px) 100vw, 896px"
+                className="object-cover opacity-30"
+                priority
+              />
+            )}
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+              <Film className="mb-3 h-10 w-10 text-netflix-lightGray" />
+              <h1 className="text-xl font-bold md:text-2xl">{info?.title ?? 'Loading...'}</h1>
+              <p className="mt-2 max-w-md text-sm text-netflix-lightGray">
+                No trailer is available for this title, so there is nothing to play — but the
+                session still stays in step for everyone here.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {info?.trailerKey && (
+          <div className="mb-4 flex items-center justify-between gap-3 px-1">
+            <h1 className="min-w-0 truncate text-lg font-bold md:text-xl">
+              {info?.title ?? 'Loading...'}
+            </h1>
             <Link
               href={detailHref}
-              className="mt-4 rounded bg-white/20 px-4 py-2 text-sm font-semibold backdrop-blur-sm transition-colors hover:bg-white/30"
+              className="shrink-0 text-sm text-netflix-lightGray transition-colors hover:text-white"
             >
               View details
             </Link>
           </div>
-        </div>
+        )}
 
         <SyncTransport
           livePosition={livePosition}
           isPlaying={session.isPlaying}
-          durationSeconds={info?.durationSeconds ?? DEFAULT_RUNTIME_SECONDS}
+          durationSeconds={playerDuration ?? info?.durationSeconds ?? DEFAULT_RUNTIME_SECONDS}
           disabled={ended}
           onPlay={play}
           onPause={pause}

@@ -11,6 +11,7 @@ import {
   inviteToWatchSession,
   leaveWatchSession,
   listSessionParticipants,
+  livePositionOf,
   socialErrorMessage,
   updatePlaybackState,
   type SessionParticipant,
@@ -246,15 +247,10 @@ export function useWatchSession(sessionId: string | null): UseWatchSession {
   }, [supabase, sessionId, userId]);
 
   // --- Derived position -----------------------------------------------------
-  const livePosition = useCallback((): number => {
-    if (!session) return 0;
-    if (!session.isPlaying) return session.positionSeconds;
-
-    const since = (Date.now() - new Date(session.positionUpdatedAt).getTime()) / 1000;
-    // A negative elapsed time means clock skew against the server; clamp rather
-    // than rewind the video.
-    return session.positionSeconds + Math.max(0, since);
-  }, [session]);
+  const livePosition = useCallback(
+    (): number => (session ? livePositionOf(session) : 0),
+    [session]
+  );
 
   // --- Transitions ----------------------------------------------------------
   const commit = useCallback(

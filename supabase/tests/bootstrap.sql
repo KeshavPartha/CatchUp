@@ -149,6 +149,23 @@ BEGIN
 END;
 $$;
 
+-- Makes two users friends, going through the real request/accept path rather
+-- than inserting an accepted row -- which the transition trigger forbids
+-- anyway, and which would skip the very consent rule under test elsewhere.
+CREATE OR REPLACE FUNCTION test.befriend(p_a UUID, p_b UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_request UUID;
+BEGIN
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', p_a)::TEXT, TRUE);
+    v_request := public.send_friend_request(p_b);
+    PERFORM set_config('request.jwt.claims', json_build_object('sub', p_b)::TEXT, TRUE);
+    PERFORM public.accept_friend_request(v_request);
+END;
+$$;
+
 GRANT USAGE  ON SCHEMA test           TO anon, authenticated;
 GRANT SELECT ON test.fixtures         TO anon, authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA test TO anon, authenticated;

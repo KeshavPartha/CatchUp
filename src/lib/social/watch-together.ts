@@ -13,9 +13,28 @@ import type {
   MediaType,
   SessionParticipant,
   SocialClient,
+  WatchSessionState,
   WatchSessionSummary,
   WatchSessionTarget,
 } from './types';
+
+/**
+ * The position the video should be at right now, in seconds.
+ *
+ * A session stores the last agreed position plus when it was agreed, so live
+ * position is derived rather than streamed. Defined once here and used by both
+ * `useWatchSession` and the player adapter -- two implementations of this would
+ * be two things to keep in step, and any disagreement between them would look
+ * exactly like playback drift.
+ */
+export function livePositionOf(state: WatchSessionState): number {
+  if (!state.isPlaying) return state.positionSeconds;
+
+  const elapsed = (Date.now() - new Date(state.positionUpdatedAt).getTime()) / 1000;
+  // Negative elapsed means our clock is behind the server's; clamp rather than
+  // rewind the video under the viewer.
+  return state.positionSeconds + Math.max(0, elapsed);
+}
 
 /** Starts a session and joins the host to it. Returns the session id. */
 export async function createWatchSession(
