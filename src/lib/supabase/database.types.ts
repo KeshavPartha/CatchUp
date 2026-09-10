@@ -256,6 +256,85 @@ export interface Database {
           },
         ];
       };
+      watch_sessions: {
+        Row: {
+          id: string;
+          host_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          status: Database['public']['Enums']['watch_session_status'];
+          is_playing: boolean;
+          position_seconds: number;
+          position_updated_at: string;
+          created_at: string;
+          ended_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          status?: Database['public']['Enums']['watch_session_status'];
+          is_playing?: boolean;
+          position_seconds?: number;
+          position_updated_at?: string;
+          created_at?: string;
+          ended_at?: string | null;
+        };
+        // host_id, media_id, media_type and created_at are immutable, enforced
+        // by the enforce_watch_session_update trigger in migration 004.
+        Update: {
+          status?: Database['public']['Enums']['watch_session_status'];
+          is_playing?: boolean;
+          position_seconds?: number;
+          position_updated_at?: string;
+          ended_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'watch_sessions_host_id_fkey';
+            columns: ['host_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
+      watch_session_participants: {
+        Row: {
+          session_id: string;
+          user_id: string;
+          invited_by: string | null;
+          invited_at: string;
+          joined_at: string | null;
+          last_seen_at: string | null;
+        };
+        Insert: {
+          session_id: string;
+          user_id: string;
+          invited_by?: string | null;
+          invited_at?: string;
+          joined_at?: string | null;
+          last_seen_at?: string | null;
+        };
+        Update: {
+          joined_at?: string | null;
+          last_seen_at?: string | null;
+        };
+        Relationships: [
+          {
+            foreignKeyName: 'watch_session_participants_session_id_fkey';
+            columns: ['session_id'];
+            referencedRelation: 'watch_sessions';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'watch_session_participants_user_id_fkey';
+            columns: ['user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -436,10 +515,86 @@ export interface Database {
           last_watched: string;
         }[];
       };
+      is_session_participant: {
+        Args: { p_session_id: string; p_user_id: string };
+        Returns: boolean;
+      };
+      watch_session_host: {
+        Args: { p_session_id: string };
+        Returns: string;
+      };
+      create_watch_session: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv' };
+        Returns: string;
+      };
+      invite_to_watch_session: {
+        Args: { p_session_id: string; p_friend_id: string };
+        Returns: undefined;
+      };
+      join_watch_session: {
+        Args: { p_session_id: string };
+        Returns: undefined;
+      };
+      leave_watch_session: {
+        Args: { p_session_id: string };
+        Returns: undefined;
+      };
+      heartbeat_watch_session: {
+        Args: { p_session_id: string };
+        Returns: undefined;
+      };
+      update_playback_state: {
+        Args: { p_session_id: string; p_position_seconds: number; p_is_playing: boolean };
+        Returns: undefined;
+      };
+      end_watch_session: {
+        Args: { p_session_id: string };
+        Returns: undefined;
+      };
+      list_my_watch_sessions: {
+        Args: Record<string, never>;
+        Returns: {
+          session_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          host_user_id: string;
+          host_username: string | null;
+          host_full_name: string | null;
+          host_avatar_url: string | null;
+          is_host: boolean;
+          has_joined: boolean;
+          participant_count: number;
+          created_at: string;
+        }[];
+      };
+      list_session_participants: {
+        Args: { p_session_id: string };
+        Returns: {
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+          is_host: boolean;
+          has_joined: boolean;
+          joined_at: string | null;
+          last_seen_at: string | null;
+        }[];
+      };
+      list_watch_session_targets: {
+        Args: { p_session_id: string };
+        Returns: {
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+          is_invited: boolean;
+        }[];
+      };
     };
     Enums: {
       friend_request_status: 'pending' | 'accepted' | 'declined' | 'cancelled';
       recommendation_status: 'pending' | 'seen' | 'dismissed' | 'added';
+      watch_session_status: 'active' | 'ended';
     };
   };
 }

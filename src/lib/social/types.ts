@@ -87,6 +87,52 @@ export interface FriendProgress extends SocialProfile {
   lastWatched: string;
 }
 
+export type WatchSessionStatus = Database['public']['Enums']['watch_session_status'];
+
+/** An active Watch Together session the current user is in or invited to. */
+export interface WatchSessionSummary {
+  sessionId: string;
+  mediaId: number;
+  mediaType: MediaType;
+  isHost: boolean;
+  /** False while an invitation is still unaccepted. */
+  hasJoined: boolean;
+  participantCount: number;
+  createdAt: string;
+  host: SocialProfile;
+}
+
+export interface SessionParticipant extends SocialProfile {
+  isHost: boolean;
+  hasJoined: boolean;
+  joinedAt: string | null;
+  lastSeenAt: string | null;
+}
+
+/** A friend in the "invite to this session" picker. */
+export interface WatchSessionTarget extends SocialProfile {
+  isInvited: boolean;
+}
+
+/**
+ * The durable playback state of a session.
+ *
+ * `positionSeconds` is the last agreed position and `positionUpdatedAt` is when
+ * it was agreed. A client computes the live position from the two rather than
+ * needing a continuous stream of updates to stay honest -- see
+ * `livePosition` in use-watch-session.ts.
+ */
+export interface WatchSessionState {
+  sessionId: string;
+  hostId: string;
+  mediaId: number;
+  mediaType: MediaType;
+  status: WatchSessionStatus;
+  isPlaying: boolean;
+  positionSeconds: number;
+  positionUpdatedAt: string;
+}
+
 export interface UserSearchResult extends SocialProfile {
   relationship: Relationship;
   /** The pending request between the viewer and this user, when one exists. */

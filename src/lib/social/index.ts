@@ -10,4 +10,5 @@ export * from './friendships';
 export * from './requests';
 export * from './recommendations';
 export * from './progress-sharing';
+export * from './watch-together';
 export * from './search';

@@ -1,6 +1,7 @@
 import { HeroBanner } from '@/components/hero-banner';
 import { MovieRow } from '@/components/movie-row';
 import { ContinueWatchingRow } from '@/components/continue-watching-row';
+import { FriendRecommendationsRow } from '@/components/social/friend-recommendations-row';
 import {
   getTrendingMovies,
   getPopularMovies,
@@ -31,6 +32,9 @@ export default async function Home() {
       <div className="relative -mt-32 space-y-8 pb-16">
         {/* Continue Watching - only shows if user has watch history */}
         <ContinueWatchingRow />
+
+        {/* Recommended by friends - only shows if friends have recommended something */}
+        <FriendRecommendationsRow />
 
         <MovieRow title="Trending Now" movies={trending} />
         <MovieRow title="Popular on Netflix" movies={popular} />
