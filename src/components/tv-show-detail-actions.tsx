@@ -6,6 +6,7 @@ import { Episode } from '@/lib/catalog';
 import { useMyList } from '@/hooks/use-my-list';
 import { useLikedItems } from '@/hooks/use-liked-items';
 import { useShowPlaybackTarget } from '@/hooks/use-show-playback-target';
+import { CatchMeUpButton } from '@/components/catch-me-up-button';
 import { RecommendButton } from '@/components/social/recommend-button';
 import { ShareProgressControl } from '@/components/social/share-progress-control';
 import { FriendProgressStrip } from '@/components/social/friend-progress-strip';
@@ -19,7 +20,7 @@ interface TVShowDetailActionsProps {
 export function TVShowDetailActions({ showId, showName, episodes }: TVShowDetailActionsProps) {
   const { myList, addToList, removeFromList } = useMyList();
   const { isLiked, toggleLike } = useLikedItems();
-  const { targetEpisode, isResume } = useShowPlaybackTarget(showId, episodes);
+  const { targetEpisode, isResume, isEligibleForRecap } = useShowPlaybackTarget(showId, episodes);
   const isInList = myList.some((item) => item.media_id === showId && item.media_type === 'tv');
   const liked = isLiked(showId, 'tv');
 
@@ -46,6 +47,9 @@ export function TVShowDetailActions({ showId, showName, episodes }: TVShowDetail
           <span aria-hidden="true">▶</span>
           {isResume ? 'Resume' : 'Play'}
         </Link>
+      )}
+      {targetEpisode && isEligibleForRecap(targetEpisode) && (
+        <CatchMeUpButton showId={showId} targetEpisode={targetEpisode} isResume={isResume} />
       )}
       <button
         onClick={handleAddToList}

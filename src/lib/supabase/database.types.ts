@@ -82,9 +82,57 @@ export interface Database {
         Relationships: [];
       };
       episode_plot_events: {
-        Row: { id: string; episode_id: string; event_order: number; title: string; summary: string; spoiler_boundary: string; created_at: string };
-        Insert: { id?: string; episode_id: string; event_order: number; title: string; summary: string; spoiler_boundary: string; created_at?: string };
-        Update: { id?: string; episode_id?: string; event_order?: number; title?: string; summary?: string; spoiler_boundary?: string; created_at?: string };
+        Row: {
+          id: string;
+          show_id: string | null;
+          season_id: string | null;
+          season_number: number | null;
+          episode_id: string;
+          episode_number: number | null;
+          event_order: number;
+          event_text: string | null;
+          involved_characters: string[];
+          importance_score: number | null;
+          tags: string[];
+          title: string | null;
+          summary: string | null;
+          spoiler_boundary: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          show_id?: string | null;
+          season_id?: string | null;
+          season_number?: number | null;
+          episode_id: string;
+          episode_number?: number | null;
+          event_order: number;
+          event_text?: string | null;
+          involved_characters?: string[];
+          importance_score?: number | null;
+          tags?: string[];
+          title?: string | null;
+          summary?: string | null;
+          spoiler_boundary?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          show_id?: string | null;
+          season_id?: string | null;
+          season_number?: number | null;
+          episode_id?: string;
+          episode_number?: number | null;
+          event_order?: number;
+          event_text?: string | null;
+          involved_characters?: string[];
+          importance_score?: number | null;
+          tags?: string[];
+          title?: string | null;
+          summary?: string | null;
+          spoiler_boundary?: string | null;
+          created_at?: string;
+        };
         Relationships: [];
       };
       friendships: {
