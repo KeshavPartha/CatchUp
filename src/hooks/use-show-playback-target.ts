@@ -9,6 +9,26 @@ import { logSupabaseError } from '@/lib/supabase/logging';
 
 type WatchProgress = Database['public']['Tables']['watch_progress']['Row'];
 
+export function isEpisodeEligibleForRecap(
+  episode: Episode,
+  episodes: Episode[],
+  progressRows: Array<Pick<WatchProgress, 'episode_id' | 'completed'>>
+): boolean {
+  const targetIndex = episodes.findIndex((item) => item.id === episode.id);
+  if (targetIndex <= 0) return false;
+
+  const targetIsCompleted = progressRows.some(
+    (row) => row.episode_id === episode.id && row.completed
+  );
+  if (targetIsCompleted) return false;
+
+  return episodes
+    .slice(0, targetIndex)
+    .some((priorEpisode) =>
+      progressRows.some((row) => row.episode_id === priorEpisode.id && row.completed)
+    );
+}
+
 export function useShowPlaybackTarget(showId: number, episodes: Episode[]) {
   const [progressRows, setProgressRows] = useState<WatchProgress[]>([]);
   const [loading, setLoading] = useState(true);
@@ -117,14 +137,7 @@ export function useShowPlaybackTarget(showId: number, episodes: Episode[]) {
 
   const isEligibleForRecap = (episode: Episode): boolean => {
     if (loading || !userId) return false;
-    const targetIndex = episodes.findIndex((item) => item.id === episode.id);
-    if (targetIndex <= 0) return false;
-
-    return episodes
-      .slice(0, targetIndex)
-      .some((priorEpisode) =>
-        progressRows.some((row) => row.episode_id === priorEpisode.id && row.completed)
-      );
+    return isEpisodeEligibleForRecap(episode, episodes, progressRows);
   };
 
   const isResumeForEpisode = (episode: Episode): boolean =>
