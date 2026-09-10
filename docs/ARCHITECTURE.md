@@ -6,7 +6,7 @@
 - A local TypeScript catalog is the current content source of truth. It is deliberately small and replaceable; it is not a second external movie API.
 - Supabase owns authentication and private user data.
 - Client components own interactive playback controls and call a focused progress hook.
-- Future AI and social workflows must use server-side boundaries for secrets, authorization, and spoiler filtering.
+- Future AI and social workflows must use server-side boundaries for secrets, authorization, and spoiler filtering. The recap foundation exposes a deterministic episode boundary and retrieval contract without adding an LLM or UI.
 
 ## Content model
 
@@ -26,9 +26,13 @@ The catalog adapter should expose list, search, detail, and image-path functions
 
 Supabase Auth is the identity boundary. Durable user data is accessed with the authenticated user context and protected by RLS. Route-level UX may redirect unauthenticated users, but database policies remain the security boundary.
 
+## Recap foundation
+
+`src/lib/recaps/types.ts` defines the stable plot-event, progress-reader, boundary, and retrieval result contracts. `demo-plot-events.ts` contains controlled narrative data for the full `Echoes of Orion` show. `spoiler-boundary.ts` computes the completed-prior-episode scope, and `retrieval.ts` filters events to that scope and provides an injected Supabase progress reader. Any future generation endpoint must pass only this filtered result to a model.
+
 ## Future extension points
 
-Episode plot events attach to stable episode IDs and carry a spoiler boundary. Social permissions attach a viewer to a specific show and friend, never to a global history feed. Watch Together sessions own a shared episode and playback state, with membership and event authorization enforced separately from personal progress.
+Episode plot events attach to stable show, season, and episode IDs and carry ordered narrative metadata. Social permissions attach a viewer to a specific show and friend, never to a global history feed. Watch Together sessions own a shared episode and playback state, with membership and event authorization enforced separately from personal progress.
 
 ## Non-goals
 

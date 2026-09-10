@@ -2,7 +2,7 @@
 
 ## Scope
 
-CatchUp is a Next.js streaming-platform prototype. The current foundation uses a fully controlled local catalog and an interactive demo player. AI recaps, follow-up Q&A, friends, recommendations, progress sharing, and Watch Together remain design-only capabilities.
+CatchUp is a Next.js streaming-platform prototype. The current foundation uses a fully controlled local catalog, an interactive demo player, and a deterministic spoiler-safe narrative retrieval foundation. AI generation/UI, follow-up Q&A, friends, recommendations, progress sharing, and Watch Together remain unimplemented.
 
 ## Tech stack
 
@@ -19,6 +19,7 @@ src/components/          Shared shell, rows/cards, actions, and reusable demo pl
 src/hooks/               My List, likes, Continue Watching, and episode progress hooks
 src/lib/catalog.ts       Controlled local catalog and catalog adapter functions
 src/lib/supabase/        Supabase browser client, config guard, and database types
+src/lib/recaps/          Plot-event data, episode boundary logic, and safe retrieval contracts
 public/demo/             Locally controlled poster/backdrop SVG artwork
 supabase-schema.sql      Current/future-ready Supabase schema and RLS policies
 docs/                    Product, architecture, database, AI, social, and party specs
@@ -26,21 +27,21 @@ docs/                    Product, architecture, database, AI, social, and party 
 
 ## Routes and pages
 
-| Route | Behavior |
-| --- | --- |
-| `/` | Local movie hero, movie rows, and authenticated Continue Watching row. |
-| `/movies` | Local movie rows: trending, popular, top-rated, upcoming, and now playing. |
-| `/tv-shows` | Local show rows: trending, popular, top-rated, airing today, and on the air. |
-| `/new` | Combined local movie and TV discovery rows. |
-| `/search?q=...` | Client-side search over the local movie/show catalog. |
-| `/movie/[id]` | Local movie details, metadata, Play/Resume, My List, likes, and related local movies. |
-| `/movie/[id]/play` | Movie detail, interactive demo playback, and movie progress persistence. |
-| `/tv/[id]` | Local show details, seasons, episodes, episode links, My List, and likes. |
+| Route                          | Behavior                                                                                |
+| ------------------------------ | --------------------------------------------------------------------------------------- |
+| `/`                            | Local movie hero, movie rows, and authenticated Continue Watching row.                  |
+| `/movies`                      | Local movie rows: trending, popular, top-rated, upcoming, and now playing.              |
+| `/tv-shows`                    | Local show rows: trending, popular, top-rated, airing today, and on the air.            |
+| `/new`                         | Combined local movie and TV discovery rows.                                             |
+| `/search?q=...`                | Client-side search over the local movie/show catalog.                                   |
+| `/movie/[id]`                  | Local movie details, metadata, Play/Resume, My List, likes, and related local movies.   |
+| `/movie/[id]/play`             | Movie detail, interactive demo playback, and movie progress persistence.                |
+| `/tv/[id]`                     | Local show details, seasons, episodes, episode links, My List, and likes.               |
 | `/tv/[id]/episode/[episodeId]` | Episode detail, interactive demo playback, progress persistence, and next-episode link. |
-| `/my-list` | User/local saved movie and show IDs resolved against the local catalog. |
-| `/login` | Supabase email/password login. |
-| `/signup` | Supabase signup with `full_name` metadata. |
-| `/profile` | Client-side session display, metadata edit, and sign-out. |
+| `/my-list`                     | User/local saved movie and show IDs resolved against the local catalog.                 |
+| `/login`                       | Supabase email/password login.                                                          |
+| `/signup`                      | Supabase signup with `full_name` metadata.                                              |
+| `/profile`                     | Client-side session display, metadata edit, and sign-out.                               |
 
 ## Local catalog
 
@@ -65,7 +66,7 @@ The deprecated `@supabase/auth-helpers-nextjs` dependency and unused server help
 
 The current schema includes `profiles`, `my_list`, `liked_items`, and the expanded `watch_progress` table. `watch_progress` stores one row per user and episode, or per user and movie, with stable content IDs, current season/episode numbers where applicable, position, duration, percentage, completion, and timestamps.
 
-The schema also creates future-ready, RLS-enabled tables for `episode_plot_events`, `friendships`, `show_recommendations`, `progress_shares`, `watch_parties`, `watch_party_members`, and `watch_party_events`. Future tables intentionally have no permissive client policies until their features are implemented.
+The schema also creates future-ready, RLS-enabled tables for `episode_plot_events`, `friendships`, `show_recommendations`, `progress_shares`, `watch_parties`, `watch_party_members`, and `watch_party_events`. `episode_plot_events` now has show/season/episode metadata, event text, involved characters, importance, and tags; legacy narrative columns remain nullable for compatibility. Future tables intentionally have no permissive client policies until their features are implemented.
 
 ## Watch progress and Continue Watching
 
@@ -128,5 +129,5 @@ Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the h
 1. Apply the schema with a test Supabase project and verify signup, episode progress, reload/resume, completion, and Continue Watching with two users.
 2. Add automated tests for progress clamping, debouncing/flush behavior, episode resolution, completion, and RLS isolation.
 3. Decide whether the catalog remains code-controlled for the prototype or moves to managed content tables.
-4. Define the spoiler-safe data pipeline and episode plot-event ingestion before implementing Catch Me Up or Q&A.
+4. Add the server-side Catch Me Up generation boundary that accepts only the output of `src/lib/recaps/retrieval.ts`, then implement recap/Q&A UI.
 5. Implement explicit per-show progress sharing and friends only after private progress semantics are stable.
