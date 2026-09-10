@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 500 750">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#202c46"/><stop offset="1" stop-color="#0e111c"/></linearGradient></defs>
+  <rect width="500" height="750" fill="url(#g)"/><circle cx="110" cy="150" r="80" fill="#f7d794" opacity=".75"/><path d="M0 480c100-80 180-20 270-120 80-88 150-20 230-100v490H0z" fill="#111522"/><path d="M0 540c110-50 180 20 290-50 85-55 130-15 210-60" fill="none" stroke="#f7d794" stroke-width="5" opacity=".65"/>
+  <text x="40" y="610" fill="white" font-family="sans-serif" font-size="39" font-weight="700">THE QUIET</text><text x="40" y="658" fill="#f7d794" font-family="sans-serif" font-size="39" font-weight="700">BETWEEN</text><text x="42" y="700" fill="white" opacity=".7" font-family="sans-serif" font-size="15" letter-spacing="4">A CATCHUP ORIGINAL</text>
+</svg>

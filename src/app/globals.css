@@ -92,7 +92,7 @@ html {
   scroll-behavior: smooth;
 }
 
-/* Netflix-style fade in animation */
+/* CatchUp-style fade in animation */
 @keyframes fadeIn {
   from {
     opacity: 0;
@@ -117,4 +117,3 @@ html {
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
-

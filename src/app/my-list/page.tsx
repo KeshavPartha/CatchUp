@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { MovieCard } from '@/components/movie-card';
 import { TVShowCard } from '@/components/tv-show-card';
 import { useMyList } from '@/hooks/use-my-list';
-import { getMovieDetails, getTVShowDetails, MovieDetails, TVShowDetails } from '@/lib/tmdb';
+import { getMovieDetails, getTVShowDetails, MovieDetails, TVShowDetails } from '@/lib/catalog';
 
 // Lightweight skeleton
 function MyListSkeleton() {
@@ -95,7 +95,7 @@ export default function MyListPage() {
             <div className="mb-4 text-6xl">📺</div>
             <h2 className="mb-2 text-2xl font-semibold">Your list is empty</h2>
             <p className="mb-6 text-netflix-lightGray">
-              Add movies and shows to your list to watch them later
+              Add movies and shows to your list to return to them later
             </p>
             <button
               onClick={() => router.push('/')}
@@ -124,4 +124,3 @@ export default function MyListPage() {
     </main>
   );
 }
-

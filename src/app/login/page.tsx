@@ -38,14 +38,14 @@ export default function LoginPage() {
   return (
     <div className="relative flex min-h-screen items-center justify-center">
       {/* Background */}
-      <div className="absolute inset-0 bg-[url('https://assets.nflxext.com/ffe/siteui/vlv3/9d3533b2-0e2b-40b2-95e0-ecd7979cc88b/a3873901-5b7c-46eb-b9fa-12fea5197bd3/US-en-20240311-popsignuptwoweeks-perspective_alpha_website_large.jpg')] bg-cover bg-center" />
-      <div className="absolute inset-0 bg-black/60" />
+      <div className="absolute inset-0 bg-gradient-to-br from-netflix-black via-slate-950 to-netflix-red/40" />
+      <div className="absolute inset-0 bg-black/40" />
 
       {/* Content */}
       <div className="relative z-10 w-full max-w-md space-y-8 rounded-lg bg-black/75 px-8 py-12 md:px-16">
         {/* Logo */}
         <div className="text-center">
-          <h1 className="text-3xl font-bold text-netflix-red">NETFLIX</h1>
+          <h1 className="text-3xl font-bold text-netflix-red">CatchUp</h1>
         </div>
 
         {/* Form */}
@@ -97,7 +97,7 @@ export default function LoginPage() {
           </div>
 
           <div className="text-netflix-lightGray">
-            New to Netflix?{' '}
+            New to CatchUp?{' '}
             <Link href="/signup" className="text-white hover:underline">
               Sign up now
             </Link>
@@ -116,4 +116,3 @@ export default function LoginPage() {
     </div>
   );
 }
-

@@ -140,7 +140,7 @@ export default function ProfilePage() {
                   placeholder="Your name"
                 />
               ) : (
-                <h2 className="text-2xl font-semibold">{user.full_name || 'Netflix User'}</h2>
+                <h2 className="text-2xl font-semibold">{user.full_name || 'CatchUp User'}</h2>
               )}
               <p className="text-netflix-lightGray">{user.email}</p>
             </div>
@@ -212,4 +212,3 @@ export default function ProfilePage() {
     </main>
   );
 }
-
