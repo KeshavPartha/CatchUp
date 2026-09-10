@@ -80,11 +80,19 @@ CREATE UNIQUE INDEX IF NOT EXISTS watch_progress_user_movie_key
 -- Future AI source data. Rows are server-managed; no client policy is granted here.
 CREATE TABLE IF NOT EXISTS public.episode_plot_events (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  show_id TEXT,
+  season_id TEXT,
+  season_number INTEGER,
   episode_id TEXT NOT NULL,
+  episode_number INTEGER,
   event_order INTEGER NOT NULL,
-  title TEXT NOT NULL,
-  summary TEXT NOT NULL,
-  spoiler_boundary TEXT NOT NULL,
+  event_text TEXT,
+  involved_characters TEXT[] NOT NULL DEFAULT '{}',
+  importance_score NUMERIC(3,2),
+  tags TEXT[] NOT NULL DEFAULT '{}',
+  title TEXT,
+  summary TEXT,
+  spoiler_boundary TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(episode_id, event_order)
 );
@@ -228,6 +236,7 @@ CREATE TRIGGER on_watch_progress_updated BEFORE UPDATE ON public.watch_progress 
 CREATE INDEX IF NOT EXISTS idx_watch_progress_user_last_watched ON public.watch_progress(user_id, last_watched_at DESC);
 CREATE INDEX IF NOT EXISTS idx_watch_progress_show ON public.watch_progress(user_id, show_id);
 CREATE INDEX IF NOT EXISTS idx_episode_plot_events_episode ON public.episode_plot_events(episode_id, event_order);
+CREATE INDEX IF NOT EXISTS idx_episode_plot_events_show_episode ON public.episode_plot_events(show_id, season_id, episode_id, event_order);
 CREATE INDEX IF NOT EXISTS idx_friendships_participants ON public.friendships(requester_id, addressee_id, status);
 CREATE INDEX IF NOT EXISTS idx_recommendations_recipient ON public.show_recommendations(recipient_id, status, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_progress_shares_recipient ON public.progress_shares(friend_id, show_id, enabled);

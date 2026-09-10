@@ -28,6 +28,17 @@ Remaining foundation work:
 
 **Owner:** Keshav
 
+**Status:** Narrative retrieval, server-side recap generation, recap UI, and follow-up Q&A complete; provider configuration and broader evaluation remain.
+
+Completed in this phase so far:
+
+- Structured episode plot-event data
+- Episode-based spoiler-boundary logic
+- Retrieval pipeline that only returns completed prior-episode information
+- Server-side recap endpoint and provider abstraction
+- Catch Me Up UI with loading, error, empty, authentication, retry, and playback states
+- Spoiler-safe follow-up Q&A endpoint and lightweight modal history
+
 Build:
 
 - Structured episode plot-event data

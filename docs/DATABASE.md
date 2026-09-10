@@ -20,7 +20,7 @@ One row per user and episode, unique on `(user_id, episode_id)`, or per user and
 
 ## Future-ready tables
 
-- `episode_plot_events`: ordered, structured events keyed by episode, with a spoiler boundary and retrieval-safe text for future recaps/Q&A.
+- `episode_plot_events`: server-managed ordered narrative events keyed by show, season, and episode. Events include `event_text`, `involved_characters`, `importance_score`, and optional `tags`; legacy title/summary/boundary fields remain nullable for compatibility. Future recap retrieval must filter these rows through the user’s completed episode boundary.
 - `friendships`: requester/addressee pairs with a constrained status; no history access is implied.
 - `show_recommendations`: sender, recipient, content ID, optional note, and lifecycle status.
 - `progress_shares`: owner, friend, show, enabled/revoked timestamps; unique per owner/friend/show.
@@ -40,4 +40,4 @@ The player sends idempotent upserts for an episode or movie. Progress updates ar
 
 ## Migration posture
 
-The SQL schema is intentionally additive and uses stable text IDs for the controlled demo catalog. Existing hosted projects initialized from the original starter should run `supabase/migrations/20260910_watch_progress_foundation.sql`; new projects can run `supabase-schema.sql`. A later catalog migration can add managed content tables and foreign keys after the product’s provider/licensing choice is known.
+The SQL schema is intentionally additive and uses stable text IDs for the controlled demo catalog. Existing hosted projects initialized from the original starter should run `supabase/migrations/20260910_watch_progress_foundation.sql` and `supabase/migrations/20260910_episode_plot_events_metadata.sql`; new projects can run `supabase-schema.sql`. The narrative migration preserves legacy event rows while adding metadata columns. A later catalog migration can add managed content tables and foreign keys after the product’s provider/licensing choice is known.
