@@ -122,6 +122,21 @@ BEGIN
 END;
 $$;
 
+-- Values carried between test transactions (request ids and the like). Lives
+-- outside `public` and has no RLS, so impersonated roles can read it freely.
+CREATE TABLE IF NOT EXISTS test.fixtures (
+    key   TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+);
+
+CREATE OR REPLACE FUNCTION test.fixture(p_key TEXT)
+RETURNS UUID
+LANGUAGE sql
+STABLE
+AS $$
+    SELECT value::UUID FROM test.fixtures WHERE key = p_key;
+$$;
+
 -- Impersonate a user for subsequent statements in this transaction.
 CREATE OR REPLACE FUNCTION test.act_as(p_user_id UUID)
 RETURNS VOID
@@ -134,5 +149,6 @@ BEGIN
 END;
 $$;
 
-GRANT USAGE ON SCHEMA test TO anon, authenticated;
+GRANT USAGE  ON SCHEMA test           TO anon, authenticated;
+GRANT SELECT ON test.fixtures         TO anon, authenticated;
 GRANT EXECUTE ON ALL FUNCTIONS IN SCHEMA test TO anon, authenticated;
