@@ -933,26 +933,83 @@ AS $$
    ORDER BY s.created_at DESC;
 $$;
 
--- The payoff: friends who share this show, and how far through it they are.
--- SECURITY INVOKER, so every row has already passed the read policy above --
--- this function grants nothing on its own.
+-- ----------------------------------------------------------------------------
+-- list_friend_show_progress(show_id)
+--
+-- Friends who share this show, and how far through it they are -- CLAMPED to
+-- the viewer's own boundary.
+--
+-- ---------------------------------------------------------------------------
+-- Spoiler safety
+-- ---------------------------------------------------------------------------
+-- docs/SOCIAL_SPEC.md: "Any shared progress must expose only a boundary
+-- appropriate to the recipient's own progress... Social UI should avoid showing
+-- episode titles or plot context beyond what the viewer has authorized and can
+-- safely see."
+--
+-- A friend who is BEHIND or level with the viewer is shown exactly. A friend
+-- who is AHEAD is reported as ahead, with season and episode withheld: knowing
+-- someone has reached S3E8 tells you the show runs at least that far and that
+-- they are still watching it, which is precisely the kind of thing a viewer on
+-- S1E2 asked not to learn.
+--
+-- Clamped HERE rather than in the UI, because docs/TEAM_SPLIT.md is explicit:
+-- "Do not rely on frontend-only privacy checks." A client that calls this
+-- function directly gets the same redaction.
+--
+-- A viewer who has not started the show at all has a boundary of zero, so every
+-- friend reads as "ahead" -- which is correct: nothing is safe to reveal yet.
+--
+-- SECURITY INVOKER, so every row has already passed the read policy above; this
+-- function grants nothing on its own and only narrows what it returns.
+-- ----------------------------------------------------------------------------
 CREATE OR REPLACE FUNCTION public.list_friend_show_progress(p_show_id TEXT)
 RETURNS TABLE (
   user_id UUID, username TEXT, full_name TEXT, avatar_url TEXT,
   season_number INTEGER, episode_number INTEGER,
-  progress_percent INTEGER, last_watched_at TIMESTAMPTZ
+  progress_percent INTEGER, last_watched_at TIMESTAMPTZ,
+  is_ahead BOOLEAN
 )
 LANGUAGE sql STABLE SET search_path = public, pg_temp
 AS $$
-  SELECT DISTINCT ON (w.user_id)
-         p.id, p.username, p.full_name, p.avatar_url,
-         w.current_season_number, w.current_episode_number,
-         w.progress_percent, w.last_watched_at
-    FROM public.watch_progress w
-    JOIN public.profiles p ON p.id = w.user_id
-   WHERE w.show_id = p_show_id
-     AND w.user_id <> auth.uid()
-   ORDER BY w.user_id, w.last_watched_at DESC;
+  WITH mine AS (
+    -- The viewer's own furthest point in this show. Ordered by the episode
+    -- boundary rather than recency: rewatching an early episode must not
+    -- retract a boundary they have already passed.
+    SELECT coalesce(max(w.current_season_number), 0)  AS season,
+           coalesce(max(w.current_episode_number), 0) AS episode
+      FROM public.watch_progress w
+     WHERE w.user_id = auth.uid()
+       AND w.show_id = p_show_id
+       AND w.current_season_number = (
+             SELECT max(w2.current_season_number) FROM public.watch_progress w2
+              WHERE w2.user_id = auth.uid() AND w2.show_id = p_show_id
+           )
+  ),
+  theirs AS (
+    SELECT DISTINCT ON (w.user_id)
+           w.user_id, w.current_season_number AS season,
+           w.current_episode_number AS episode,
+           w.progress_percent, w.last_watched_at
+      FROM public.watch_progress w
+     WHERE w.show_id = p_show_id
+       AND w.user_id <> auth.uid()
+     ORDER BY w.user_id, w.current_season_number DESC NULLS LAST,
+              w.current_episode_number DESC NULLS LAST
+  )
+  SELECT p.id, p.username, p.full_name, p.avatar_url,
+         CASE WHEN ahead.value THEN NULL ELSE t.season END,
+         CASE WHEN ahead.value THEN NULL ELSE t.episode END,
+         CASE WHEN ahead.value THEN 0 ELSE t.progress_percent END,
+         t.last_watched_at,
+         ahead.value
+    FROM theirs t
+    JOIN public.profiles p ON p.id = t.user_id
+   CROSS JOIN mine m
+   CROSS JOIN LATERAL (
+     SELECT (coalesce(t.season, 0), coalesce(t.episode, 0)) > (m.season, m.episode) AS value
+   ) ahead
+   ORDER BY coalesce(p.full_name, p.username);
 $$;
 
 -- ============================================================================

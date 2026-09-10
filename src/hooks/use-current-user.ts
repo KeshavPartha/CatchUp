@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 
 /**
  * The signed-in user's id, kept in sync with auth state.
@@ -22,6 +23,16 @@ export function useCurrentUser(): { userId: string | null; loading: boolean } {
 
   useEffect(() => {
     let isMounted = true;
+
+    // `createClient()` throws when Supabase is unconfigured, and this hook runs
+    // on public catalog pages through the social controls. Anonymous browsing
+    // has to keep working, so treat "unconfigured" as "signed out".
+    if (!isSupabaseConfigured) {
+      setUserId(null);
+      setLoading(false);
+      return;
+    }
+
     const supabase = createClient();
 
     const init = async () => {

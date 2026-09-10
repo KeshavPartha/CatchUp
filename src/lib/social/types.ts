@@ -69,16 +69,23 @@ export interface ProgressShare extends SocialProfile {
 }
 
 /**
- * A friend's furthest point in a show they have explicitly shared.
- *
- * Season and episode are the real boundary the product cares about; the
- * percentage is only progress through the current episode.
+ * A friend's position in a show they have explicitly shared, clamped to the
+ * viewer's own boundary so nothing ahead of them is revealed.
  */
 export interface FriendShowProgress extends SocialProfile {
+  /** Null when the friend is ahead of you -- see `isAhead`. */
   seasonNumber: number | null;
   episodeNumber: number | null;
   progressPercent: number;
   lastWatchedAt: string;
+  /**
+   * True when this friend is further into the show than you are.
+   *
+   * Their exact position is withheld in that case, by the database rather than
+   * by this app: knowing someone has reached S3E8 tells you the show runs at
+   * least that far, which is precisely what a viewer on S1E2 asked not to learn.
+   */
+  isAhead: boolean;
 }
 
 export interface WatchPartySummary {

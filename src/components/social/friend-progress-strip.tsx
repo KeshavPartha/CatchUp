@@ -1,5 +1,6 @@
 'use client';
 
+import { EyeOff } from 'lucide-react';
 import { FriendAvatar } from '@/components/social/friend-avatar';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useProgressSharing } from '@/hooks/use-progress-sharing';
@@ -11,16 +12,19 @@ interface FriendProgressStripProps {
 }
 
 /**
- * How far friends are through this title -- shown only for friends who have
+ * How far friends are through this show -- shown only for friends who have
  * explicitly shared it with the current user.
  *
  * Renders nothing when nobody has shared, which is the normal case. That
  * silence is the point: the absence of this strip is what "no automatic
  * sharing" looks like from the outside.
  *
- * Reports the episode boundary rather than a raw percentage: "S2 E6" is what a
- * viewer actually wants to know about a friend, and it is the same boundary
- * Catch Me Up uses, so the two features describe progress the same way.
+ * Spoiler-safe. A friend who is behind or level with you is shown exactly, as
+ * "S2 E6" -- the same episode boundary Catch Me Up uses, so the two features
+ * describe progress the same way. A friend who is AHEAD is shown only as ahead,
+ * with no season, episode or progress bar, because a bar would itself imply a
+ * position. The database does the redaction; this component renders what it is
+ * given and cannot un-redact it.
  */
 export function FriendProgressStrip({ showId }: FriendProgressStripProps) {
   const { userId } = useCurrentUser();
@@ -35,29 +39,37 @@ export function FriendProgressStrip({ showId }: FriendProgressStripProps) {
         {friendProgress.map((friend) => (
           <li
             key={friend.userId}
-            className="flex min-w-[180px] items-center gap-3 rounded-lg bg-black/40 p-3 backdrop-blur-sm"
+            className="flex min-w-[200px] items-center gap-3 rounded-lg bg-black/40 p-3 backdrop-blur-sm"
           >
             <FriendAvatar profile={friend} size="sm" />
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{displayName(friend)}</p>
-              <div className="mt-1 flex items-center gap-2">
-                <div
-                  className="h-1 flex-1 overflow-hidden rounded-full bg-netflix-gray"
-                  role="progressbar"
-                  aria-valuenow={friend.progressPercent}
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-label={`${displayName(friend)} is ${progressLabel(friend)}`}
-                >
+
+              {friend.isAhead ? (
+                <p className="mt-1 flex items-center gap-1.5 text-xs text-netflix-lightGray">
+                  <EyeOff className="h-3 w-3 shrink-0" />
+                  Ahead of you — hidden to avoid spoilers
+                </p>
+              ) : (
+                <div className="mt-1 flex items-center gap-2">
                   <div
-                    className="h-full rounded-full bg-netflix-red"
-                    style={{ width: `${clamp(friend.progressPercent)}%` }}
-                  />
+                    className="h-1 flex-1 overflow-hidden rounded-full bg-netflix-gray"
+                    role="progressbar"
+                    aria-valuenow={friend.progressPercent}
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-label={`${displayName(friend)} is on ${progressLabel(friend)}`}
+                  >
+                    <div
+                      className="h-full rounded-full bg-netflix-red"
+                      style={{ width: `${clamp(friend.progressPercent)}%` }}
+                    />
+                  </div>
+                  <span className="shrink-0 text-xs text-netflix-lightGray">
+                    {progressLabel(friend)}
+                  </span>
                 </div>
-                <span className="shrink-0 text-xs text-netflix-lightGray">
-                  {progressLabel(friend)}
-                </span>
-              </div>
+              )}
             </div>
           </li>
         ))}

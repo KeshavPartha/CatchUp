@@ -12,10 +12,11 @@ import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { AddFriendSearch } from '@/components/social/add-friend-search';
 import { RecommendationInbox } from '@/components/social/recommendation-inbox';
 import { PrivacyCentre } from '@/components/social/privacy-centre';
+import { BlockedUsers } from '@/components/social/blocked-users';
 import { WatchPartyBanner } from '@/components/social/watch-party-banner';
 import { useRecommendations } from '@/hooks/use-recommendations';
 
-type Tab = 'friends' | 'recommendations' | 'requests' | 'sharing' | 'add';
+type Tab = 'friends' | 'recommendations' | 'requests' | 'privacy' | 'add';
 
 function FriendsSkeleton() {
   return (
@@ -64,7 +65,7 @@ export default function FriendsPage() {
   const { userId, loading: authLoading } = useCurrentUser();
   const [tab, setTab] = useState<Tab>('friends');
 
-  const { friends, loading: friendsLoading, busyIds: friendBusyIds, remove } = useFriends();
+  const { friends, loading: friendsLoading, busyIds: friendBusyIds, remove, block } = useFriends();
   const { unseenCount } = useRecommendations();
   const {
     incoming,
@@ -105,7 +106,7 @@ export default function FriendsPage() {
     { id: 'friends', label: 'Friends', badge: friends.length || undefined },
     { id: 'recommendations', label: 'Recommended', badge: unseenCount || undefined },
     { id: 'requests', label: 'Requests', badge: pendingCount || undefined },
-    { id: 'sharing', label: 'Sharing' },
+    { id: 'privacy', label: 'Privacy' },
     { id: 'add', label: 'Add friend' },
   ];
 
@@ -181,6 +182,7 @@ export default function FriendsPage() {
                   friend={friend}
                   busy={friendBusyIds.has(friend.userId)}
                   onRemove={remove}
+                  onBlock={block}
                 />
               ))}
             </ul>
@@ -243,13 +245,15 @@ export default function FriendsPage() {
           </div>
         )}
 
-        {tab === 'sharing' && (
+        {tab === 'privacy' && (
           <div>
             <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
               <ShieldCheck className="h-5 w-5" />
               What you&rsquo;re sharing
             </h2>
             <PrivacyCentre />
+            {/* Renders nothing unless the user has blocked someone. */}
+            <BlockedUsers />
           </div>
         )}
 

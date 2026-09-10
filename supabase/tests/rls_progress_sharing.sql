@@ -137,10 +137,8 @@ DO $$
 BEGIN
     PERFORM test.eq('Hank can now see the shared show',
                     (SELECT count(*) FROM public.list_friend_show_progress('orion')), 1);
-    PERFORM test.eq('at the right episode',
-                    (SELECT episode_number FROM public.list_friend_show_progress('orion')), 3);
-    PERFORM test.eq('in the right season',
-                    (SELECT season_number FROM public.list_friend_show_progress('orion')), 2);
+    -- Detail is withheld here because Hank has not started the show; the
+    -- spoiler rule is covered in full in section 3b below.
 
     -- The heart of the feature: sharing one show shares ONLY that show.
     PERFORM test.eq('but NOT the other show Gina is watching',
@@ -149,6 +147,71 @@ BEGIN
                         AND show_id = 'quiet'), 0);
     PERFORM test.eq('and its friend view stays empty',
                     (SELECT count(*) FROM public.list_friend_show_progress('quiet')), 0);
+END $$;
+ROLLBACK;
+
+\echo ''
+\echo '-- 3b. Spoiler safety: a viewer never sees past their own boundary --'
+-- Hank has not started 'orion' at all, so Gina (S2E3) reads as ahead with no
+-- specifics. This is the state most viewers are in.
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT test.act_as(:'HANK');
+DO $$
+BEGIN
+    PERFORM test.ok('a friend further ahead is flagged, not detailed',
+                    (SELECT is_ahead FROM public.list_friend_show_progress('orion')));
+    PERFORM test.ok('their season is withheld',
+                    (SELECT season_number FROM public.list_friend_show_progress('orion')) IS NULL);
+    PERFORM test.ok('and their episode is withheld',
+                    (SELECT episode_number FROM public.list_friend_show_progress('orion')) IS NULL);
+    PERFORM test.eq('and no partial position leaks either',
+                    (SELECT progress_percent FROM public.list_friend_show_progress('orion')), 0);
+END $$;
+ROLLBACK;
+
+-- Once Hank catches up past Gina, there is nothing left to protect.
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT test.act_as(:'HANK');
+INSERT INTO public.watch_progress
+    (user_id, media_type, show_id, episode_id, current_season_number,
+     current_episode_number, position_seconds, duration_seconds, progress_percent)
+VALUES (:'HANK', 'tv', 'orion', 'orion-s4e1', 4, 1, 60, 1800, 5);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT test.act_as(:'HANK');
+DO $$
+BEGIN
+    PERFORM test.ok('a friend who is behind is shown exactly',
+                    NOT (SELECT is_ahead FROM public.list_friend_show_progress('orion')));
+    PERFORM test.eq('with their real season',
+                    (SELECT season_number FROM public.list_friend_show_progress('orion')), 2);
+    PERFORM test.eq('and their real episode',
+                    (SELECT episode_number FROM public.list_friend_show_progress('orion')), 3);
+END $$;
+ROLLBACK;
+
+-- Level-pegging counts as safe: same episode, nothing revealed.
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT test.act_as(:'HANK');
+DELETE FROM public.watch_progress WHERE user_id = :'HANK' AND show_id = 'orion';
+INSERT INTO public.watch_progress
+    (user_id, media_type, show_id, episode_id, current_season_number,
+     current_episode_number, position_seconds, duration_seconds, progress_percent)
+VALUES (:'HANK', 'tv', 'orion', 'orion-s2e3', 2, 3, 30, 1800, 2);
+COMMIT;
+
+BEGIN;
+SET LOCAL ROLE authenticated;
+SELECT test.act_as(:'HANK');
+DO $$
+BEGIN
+    PERFORM test.ok('a friend at the same episode is not treated as ahead',
+                    NOT (SELECT is_ahead FROM public.list_friend_show_progress('orion')));
 END $$;
 ROLLBACK;
 
@@ -186,11 +249,13 @@ BEGIN
     -- too. That is why every watch_progress query in the app filters by
     -- user_id: without it, Continue Watching would list a friend's show as
     -- the viewer's own.
-    PERFORM test.eq('an unfiltered read now returns Gina''s row as well',
-                    (SELECT count(*) FROM public.watch_progress), 2);
+    -- Hank owns two rows by now (his own show, plus the orion row he added
+    -- while catching up); Gina's shared orion row is the third.
+    PERFORM test.eq('an unfiltered read returns Gina''s row as well',
+                    (SELECT count(*) FROM public.watch_progress), 3);
     PERFORM test.eq('while filtering by user_id returns only his own',
                     (SELECT count(*) FROM public.watch_progress
-                      WHERE user_id = '88888888-8888-4888-8888-888888888888'), 1);
+                      WHERE user_id = '88888888-8888-4888-8888-888888888888'), 2);
 END $$;
 ROLLBACK;
 

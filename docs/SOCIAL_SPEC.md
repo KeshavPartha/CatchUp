@@ -130,6 +130,34 @@ what lets a client discard a stale broadcast, as WATCH_TOGETHER_SPEC requires.
 - **Watch Together is host-authority**, per WATCH_TOGETHER_SPEC. Guests may
   append heartbeats and nothing else. Participant controls remain a documented
   future option.
+- **Shared progress never spoils someone who is behind.** See below.
+
+### Spoiler-safe shared progress
+
+This spec's "Spoiler behavior" section requires that shared progress expose only
+a boundary appropriate to the recipient's own progress. `list_friend_show_progress`
+implements that by clamping:
+
+| Friend's position | What the viewer sees |
+| --- | --- |
+| Behind, or level with the viewer | Exactly, as `S2 E6` |
+| Ahead of the viewer | "Ahead of you", with season, episode and percentage all withheld |
+
+A viewer who has not started the show has a boundary of zero, so every friend
+reads as ahead — which is correct, since nothing is safe to reveal yet.
+
+Two details worth stating:
+
+- **The clamp is in the database, not the UI.** `docs/TEAM_SPLIT.md` is explicit
+  that frontend-only privacy checks are not acceptable, so a client calling the
+  RPC directly gets the same redaction. The UI cannot un-redact what it is
+  given.
+- **The progress bar is hidden too, not just the numbers.** A bar at 80% would
+  imply a position as surely as the text would.
+
+The viewer's own boundary is their furthest episode, not their most recent one:
+rewatching an early episode must not retract a boundary they have already
+passed.
 
 ## Cross-workstream coordination
 
@@ -150,7 +178,8 @@ what lets a client discard a stale broadcast, as WATCH_TOGETHER_SPEC requires.
 - **Watch Together has no video element.** CatchUp's playback is the controlled
   `DemoPlayer`, so the party room synchronises the clock and transport rather
   than a media element. Binding a real player is an adapter over the same state.
-- **Spoiler policy.** This spec's "Spoiler behavior" section asks that shared
-  progress respect the recipient's own boundary. Today the friend view shows the
-  sharer's season/episode plainly. Tightening that needs the AI workstream's
-  spoiler policy to exist first, and is a joint decision.
+- **Auth pages assume Supabase.** `/login`, `/signup` and `/profile` build a
+  Supabase client without checking `isSupabaseConfigured`, so they throw at
+  runtime if a visitor reaches them with no credentials set. Foundation-owned,
+  and low impact (there is nothing to sign into in that state), so it is flagged
+  here rather than changed.

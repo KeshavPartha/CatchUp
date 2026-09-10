@@ -9,6 +9,7 @@ interface FriendCardProps {
   friend: Friend;
   busy: boolean;
   onRemove: (friend: Friend) => void;
+  onBlock: (friend: Friend) => void;
 }
 
 function friendsSinceLabel(iso: string): string {
@@ -17,7 +18,7 @@ function friendsSinceLabel(iso: string): string {
   return `Friends since ${date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`;
 }
 
-export function FriendCard({ friend, busy, onRemove }: FriendCardProps) {
+export function FriendCard({ friend, busy, onRemove, onBlock }: FriendCardProps) {
   // Two-step removal rather than a modal: unfriending is reversible (you can
   // send a new request) but silent to the other person, so it deserves a
   // deliberate second click without the weight of a dialog.
@@ -45,6 +46,21 @@ export function FriendCard({ friend, busy, onRemove }: FriendCardProps) {
             className="rounded bg-netflix-red px-3 py-1.5 text-sm font-semibold transition-colors hover:bg-netflix-red/90 disabled:opacity-50"
           >
             {busy ? 'Removing...' : 'Remove'}
+          </button>
+          {/*
+            Block sits behind the same confirm step as Remove rather than on the
+            row itself: it is a heavier, less common action, and surfacing it
+            only once someone has already decided to end the friendship keeps it
+            out of the way without hiding it.
+          */}
+          <button
+            type="button"
+            onClick={() => onBlock(friend)}
+            disabled={busy}
+            className="rounded bg-red-600/20 px-3 py-1.5 text-sm font-semibold text-red-400 transition-colors hover:bg-red-600/30 disabled:opacity-50"
+            aria-label={`Block ${name}`}
+          >
+            Block
           </button>
           <button
             type="button"

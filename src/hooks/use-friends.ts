@@ -5,7 +5,14 @@ import { showToast } from '@/components/toast';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import { displayName, listFriends, socialErrorMessage, unfriend, type Friend } from '@/lib/social';
+import {
+  blockUser,
+  displayName,
+  listFriends,
+  socialErrorMessage,
+  unfriend,
+  type Friend,
+} from '@/lib/social';
 
 // Realtime topics must be unique per subscription: the same hook can be mounted
 // more than once at a time (the header badge alongside the /friends page, say),
@@ -20,6 +27,8 @@ interface UseFriends {
   busyIds: ReadonlySet<string>;
   isFriend: (userId: string) => boolean;
   remove: (friend: Friend) => Promise<boolean>;
+  /** Blocks a friend. Mutual and total, and ends the friendship. */
+  block: (friend: Friend) => Promise<boolean>;
   refresh: () => Promise<void>;
 }
 
@@ -150,12 +159,41 @@ export function useFriends(): UseFriends {
     [supabase, refresh]
   );
 
+  const block = useCallback(
+    async (friend: Friend): Promise<boolean> => {
+      if (!supabase) return false;
+
+      setBusyIds((prev) => new Set(prev).add(friend.userId));
+      setFriends((prev) => prev.filter((item) => item.userId !== friend.userId));
+
+      try {
+        await blockUser(supabase, friend.userId);
+        showToast(`Blocked ${displayName(friend)}`, 'info');
+        return true;
+      } catch (error) {
+        showToast(socialErrorMessage(error, 'Could not block this user.'), 'error');
+        return false;
+      } finally {
+        await refresh();
+        if (mounted.current) {
+          setBusyIds((prev) => {
+            const next = new Set(prev);
+            next.delete(friend.userId);
+            return next;
+          });
+        }
+      }
+    },
+    [supabase, refresh]
+  );
+
   return {
     friends,
     loading: loading || authLoading,
     busyIds,
     isFriend,
     remove,
+    block,
     refresh,
   };
 }

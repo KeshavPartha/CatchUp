@@ -251,6 +251,7 @@ export interface Database {
           episode_number: number | null;
           progress_percent: number;
           last_watched_at: string;
+          is_ahead: boolean;
         }[];
       };
       // ---- Watch parties ----

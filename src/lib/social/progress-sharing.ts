@@ -96,8 +96,9 @@ export async function listMyProgressShares(supabase: SocialClient): Promise<Prog
 /**
  * Friends who have shared this show, and how far through it they are.
  *
- * The payoff of the whole feature -- and what Watch Together will use to tell
- * you whether you are caught up enough to join.
+ * Spoiler-safe by construction: the database withholds season and episode for
+ * anyone ahead of the viewer, so this can only ever return a position the
+ * viewer has already passed. See `isAhead`.
  */
 export async function listFriendShowProgress(
   supabase: SocialClient,
@@ -115,5 +116,6 @@ export async function listFriendShowProgress(
     episodeNumber: row.episode_number,
     progressPercent: row.progress_percent,
     lastWatchedAt: row.last_watched_at,
+    isAhead: row.is_ahead,
   }));
 }
