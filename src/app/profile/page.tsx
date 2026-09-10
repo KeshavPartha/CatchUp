@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { User, Edit2, LogOut, Film, Clock, Heart } from 'lucide-react';
 import { showToast } from '@/components/toast';
+import { UsernameCard } from '@/components/social/username-card';
 import Image from 'next/image';
 
 // Lightweight skeleton for instant render
@@ -172,6 +173,11 @@ export default function ProfilePage() {
                 Edit Profile
               </button>
             )}
+          </div>
+
+          {/* Shareable handle -- how other people find this user */}
+          <div className="mb-8">
+            <UsernameCard userId={user.id} />
           </div>
 
           {/* Stats */}

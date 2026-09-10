@@ -41,7 +41,8 @@ export function useContinueWatching() {
   }, []);
 
   const fetchWatchProgress = async (userId?: string) => {
-    if (!userId && !user) return;
+    const uid = userId ?? (user?.id as string | undefined);
+    if (!uid) return;
 
     try {
       setLoading(true);
@@ -49,6 +50,19 @@ export function useContinueWatching() {
       const { data, error } = await supabase
         .from('watch_progress')
         .select('*')
+        // Filter by owner explicitly, in addition to the RLS policy that also
+        // restricts this table to the current user.
+        //
+        // This is deliberate defence in depth, not redundancy. The Social
+        // workstream will add a policy letting a friend read watch_progress
+        // rows that have been explicitly shared for a specific title. Because
+        // Postgres ORs permissive policies together, that new policy can only
+        // widen what this query returns -- and an unfiltered SELECT here would
+        // then silently start listing a friend's shows inside the current
+        // user's own Continue Watching row.
+        //
+        // See docs/SOCIAL_SPEC.md; supabase/tests covers this as a regression.
+        .eq('user_id', uid)
         .order('last_watched', { ascending: false })
         .limit(20);
 

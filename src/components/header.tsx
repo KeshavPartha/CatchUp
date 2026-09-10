@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { Search, Bell, User, Menu, X } from 'lucide-react';
 import { useState, useEffect } from 'react';
 import { cn } from '@/lib/utils';
+import { FriendRequestsBadge } from '@/components/social/friend-requests-badge';
 
 const navigation = [
   { name: 'Home', href: '/' },
@@ -12,6 +13,7 @@ const navigation = [
   { name: 'Movies', href: '/movies' },
   { name: 'New & Popular', href: '/new' },
   { name: 'My List', href: '/my-list' },
+  { name: 'Friends', href: '/friends' },
 ];
 
 export function Header() {
@@ -60,11 +62,12 @@ export function Header() {
                 key={item.name}
                 href={item.href}
                 className={cn(
-                  'text-sm font-medium transition-colors hover:text-netflix-lightGray',
+                  'flex items-center text-sm font-medium transition-colors hover:text-netflix-lightGray',
                   pathname === item.href ? 'text-white' : 'text-netflix-lightGray'
                 )}
               >
                 {item.name}
+                {item.href === '/friends' && <FriendRequestsBadge />}
               </Link>
             ))}
           </nav>
@@ -133,11 +136,12 @@ export function Header() {
                 href={item.href}
                 onClick={() => setShowMobileMenu(false)}
                 className={cn(
-                  'py-3 text-sm font-medium transition-colors border-b border-netflix-gray last:border-0',
+                  'flex items-center py-3 text-sm font-medium transition-colors border-b border-netflix-gray last:border-0',
                   pathname === item.href ? 'text-white' : 'text-netflix-lightGray'
                 )}
               >
                 {item.name}
+                {item.href === '/friends' && <FriendRequestsBadge />}
               </Link>
             ))}
             <button
