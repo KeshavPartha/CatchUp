@@ -29,7 +29,7 @@ Supabase Auth is the identity boundary. The recap endpoint accepts the browser s
 
 ## Recap foundation
 
-`src/lib/recaps/types.ts` defines the stable plot-event, progress-reader, boundary, and retrieval result contracts. `demo-plot-events.ts` contains controlled narrative data for the full `Echoes of Orion` show. `spoiler-boundary.ts` computes the completed-prior-episode scope, and `retrieval.ts` filters events to that scope and provides an injected Supabase progress reader. `generator.ts` hides Anthropic/OpenAI provider choices behind `RecapGenerator`; provider adapters live under `src/lib/recaps/providers/`. `endpoint.ts` coordinates authentication, catalog validation, retrieval, and generation. The route passes only filtered events to the provider.
+`src/lib/recaps/types.ts` defines the stable plot-event, progress-reader, boundary, and retrieval result contracts. `demo-plot-events.ts` contains controlled narrative data for the full `Echoes of Orion` show. `spoiler-boundary.ts` computes the completed-prior-episode scope, and `retrieval.ts` filters events to that scope and provides an injected Supabase progress reader. `generator.ts` hides Anthropic/OpenAI provider choices behind `RecapGenerator`; provider adapters live under `src/lib/recaps/providers/`. `endpoint.ts` coordinates authentication, catalog validation, retrieval, and generation. `src/lib/recaps/client.ts` sends only identifiers and the Supabase bearer token from the browser. `CatchMeUpButton` owns the focused dialog; the route passes only filtered events to the provider.
 
 ## Future extension points
 

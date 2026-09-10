@@ -99,14 +99,7 @@ export const handleRecapRequest = async (
       events: retrieved.events,
     });
 
-    return json({
-      recap: generated.text,
-      provider: generated.provider,
-      model: generated.model,
-      boundaryEpisodeId: retrieved.boundary.boundaryEpisodeId,
-      sourceEpisodeIds: retrieved.boundary.allowedEpisodeIds,
-      targetEpisodeId: targetEpisode.id,
-    });
+    return json({ recap: generated.text });
   } catch (error) {
     if (error instanceof Error && error.name === 'RecapProviderNotConfiguredError') {
       return json(

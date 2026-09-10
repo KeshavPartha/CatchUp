@@ -137,8 +137,7 @@ describe('Catch Me Up recap endpoint', () => {
     const body = await response.json();
 
     expect(response.status).toBe(200);
-    expect(body.provider).toBe('none');
-    expect(body.sourceEpisodeIds).toEqual([]);
+    expect(body.recap).toContain('You have not completed an episode');
     expect(received).toHaveLength(0);
   });
 

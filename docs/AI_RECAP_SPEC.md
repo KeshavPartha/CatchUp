@@ -2,7 +2,7 @@
 
 ## Status
 
-The narrative event model, deterministic spoiler-boundary retrieval foundation, and server-side recap endpoint are implemented. The endpoint supports the `Echoes of Orion` demo show. A provider abstraction with an Anthropic default and optional OpenAI adapter is present; no user-facing recap UI or follow-up Q&A is implemented.
+The narrative event model, deterministic spoiler-boundary retrieval foundation, server-side recap endpoint, and user-facing Catch Me Up UI are implemented. The endpoint and UI support the `Echoes of Orion` demo show. A provider abstraction with an Anthropic default and optional OpenAI adapter is present; follow-up Q&A is not implemented.
 
 ## V1 episode boundary
 
@@ -25,7 +25,11 @@ The generation layer receives only the retrieval result, never an unrestricted p
 
 `src/lib/recaps/generator.ts` defines the provider-independent `RecapGenerator` contract. Anthropic Claude is the default provider through a server-side Messages API `fetch` adapter; OpenAI remains available only when explicitly selected. The Anthropic API key is read only from `ANTHROPIC_API_KEY`; it is never prefixed with `NEXT_PUBLIC_` or sent to the browser. A missing provider returns a clear `503` configuration response. Users with no eligible events receive a deterministic empty-state response without calling the provider.
 
-The provider prompt receives the show name, the computed boundary, and a serialized list of already-filtered events. It must produce concise plain text using only those events and must not infer future information. The endpoint response includes the boundary and source episode IDs for traceability, but no unrestricted plot-event data is exposed to the client.
+The provider prompt receives the show name, the computed boundary, and a serialized list of already-filtered events. It must produce concise plain text using only those events and must not infer future information. The public endpoint response contains only recap text; boundaries, source episode IDs, provider metadata, prompts, and credentials remain server-side.
+
+## Catch Me Up UI
+
+On a TV show detail page, Catch Me Up appears beside the main Play/Resume action when authenticated progress has loaded and at least one completed prior episode is eligible. Eligible episode rows expose the same action for that target episode. The focused dialog shows the target context, loading state, recap text, retry/error state, and a Start/Resume episode action. The client sends only `showId`, `targetEpisodeId`, and the current Supabase access token; it does not retrieve or display plot events, source episode IDs, provider metadata, prompts, or API tokens.
 
 ## Temporary invocation
 

@@ -15,7 +15,7 @@ CatchUp is a Next.js streaming-platform prototype. The current foundation uses a
 
 ```text
 src/app/                 App Router pages, global layout, and styles
-src/components/          Shared shell, rows/cards, actions, and reusable demo player
+src/components/          Shared shell, rows/cards, actions, recap dialog, and reusable demo player
 src/hooks/               My List, likes, Continue Watching, and episode progress hooks
 src/lib/catalog.ts       Controlled local catalog and catalog adapter functions
 src/lib/supabase/        Supabase browser client, config guard, and database types
@@ -36,7 +36,7 @@ docs/                    Product, architecture, database, AI, social, and party 
 | `/search?q=...`                | Client-side search over the local movie/show catalog.                                   |
 | `/movie/[id]`                  | Local movie details, metadata, Play/Resume, My List, likes, and related local movies.   |
 | `/movie/[id]/play`             | Movie detail, interactive demo playback, and movie progress persistence.                |
-| `/tv/[id]`                     | Local show details, seasons, episodes, episode links, My List, and likes.               |
+| `/tv/[id]`                     | Local show details, seasons, episodes, episode links, Catch Me Up, My List, and likes.  |
 | `/tv/[id]/episode/[episodeId]` | Episode detail, interactive demo playback, progress persistence, and next-episode link. |
 | `/my-list`                     | User/local saved movie and show IDs resolved against the local catalog.                 |
 | `/login`                       | Supabase email/password login.                                                          |
@@ -69,6 +69,8 @@ The current schema includes `profiles`, `my_list`, `liked_items`, and the expand
 The schema also creates future-ready, RLS-enabled tables for `episode_plot_events`, `friendships`, `show_recommendations`, `progress_shares`, `watch_parties`, `watch_party_members`, and `watch_party_events`. `episode_plot_events` now has show/season/episode metadata, event text, involved characters, importance, and tags; legacy narrative columns remain nullable for compatibility. Future tables intentionally have no permissive client policies until their features are implemented.
 
 The server-side recap endpoint currently uses the local `Echoes of Orion` events as its controlled source. It does not expose plot-event rows to the client or add client policies for the server-managed table.
+
+Catch Me Up is presented by `CatchMeUpButton` in the show’s main action area and episode cards. It waits for authenticated progress to finish loading before showing an action, calls `/api/recap` with only the target identifiers and bearer token, and displays a focused responsive dialog with loading, recap, empty, authentication, error, retry, and playback actions.
 
 ## Watch progress and Continue Watching
 
@@ -133,5 +135,5 @@ For generated recaps, add the server-only `ANTHROPIC_API_KEY` to `.env.local` or
 1. Apply the schema with a test Supabase project and verify signup, episode progress, reload/resume, completion, and Continue Watching with two users.
 2. Add automated tests for progress clamping, debouncing/flush behavior, episode resolution, completion, and RLS isolation.
 3. Decide whether the catalog remains code-controlled for the prototype or moves to managed content tables.
-4. Add recap UI that calls the server-side generation endpoint and displays its boundary-aware response.
+4. Add spoiler-safe follow-up Q&A using the same server-side retrieval contract.
 5. Implement explicit per-show progress sharing and friends only after private progress semantics are stable.
