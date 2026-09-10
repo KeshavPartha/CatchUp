@@ -52,7 +52,7 @@ export default async function TVShowPage({ params }: TVShowPageProps) {
                   <span>{show.seasons.length} Season{show.seasons.length !== 1 ? 's' : ''}</span>
                   <span className="text-netflix-lightGray">{show.genres.join(', ')}</span>
                 </div>
-                <TVShowDetailActions showId={showId} episodes={episodes} />
+                <TVShowDetailActions showId={showId} showName={show.name} episodes={episodes} />
               </div>
             </div>
           </div>

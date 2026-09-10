@@ -2,38 +2,33 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
-import {
-  listMyWatchSessions,
-  socialErrorMessage,
-  type WatchSessionSummary,
-} from '@/lib/social';
+import { listMyWatchParties, socialErrorMessage, type WatchPartySummary } from '@/lib/social';
 
 // Realtime topics must be unique per subscription; see use-friends.ts.
 let channelSeq = 0;
 
-interface UseWatchSessions {
-  sessions: WatchSessionSummary[];
-  /** Sessions the user was invited to but has not joined. */
-  invitations: WatchSessionSummary[];
+interface UseWatchParties {
+  parties: WatchPartySummary[];
   loading: boolean;
   refresh: () => Promise<void>;
 }
 
 /**
- * Active Watch Together sessions the current user hosts, has joined, or has
- * been invited to.
+ * Active Watch Together sessions the current user hosts or belongs to.
  *
- * Kept live so an invitation appears without a reload -- the same reason friend
- * requests do.
+ * Kept live so an invitation appears without a reload -- an invitation is
+ * time-sensitive in a way a friend request is not, because someone is waiting
+ * to start watching.
  */
-export function useWatchSessions(): UseWatchSessions {
+export function useWatchParties(): UseWatchParties {
   const { userId, loading: authLoading } = useCurrentUser();
-  const [sessions, setSessions] = useState<WatchSessionSummary[]>([]);
+  const [parties, setParties] = useState<WatchPartySummary[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const supabase = useMemo(() => createSocialClient(), []);
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const channelId = useMemo(() => {
     channelSeq += 1;
     return channelSeq;
@@ -48,19 +43,19 @@ export function useWatchSessions(): UseWatchSessions {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!userId) {
-      setSessions([]);
+    if (!supabase || !userId) {
+      setParties([]);
       setLoading(false);
       return;
     }
 
     try {
-      const rows = await listMyWatchSessions(supabase);
-      if (!mounted.current) return;
-      setSessions(rows);
+      const rows = await listMyWatchParties(supabase);
+      if (mounted.current) setParties(rows);
     } catch (error) {
-      if (!mounted.current) return;
-      showToast(socialErrorMessage(error, 'Could not load your sessions.'), 'error');
+      if (mounted.current) {
+        showToast(socialErrorMessage(error, 'Could not load your sessions.'), 'error');
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }
@@ -73,16 +68,16 @@ export function useWatchSessions(): UseWatchSessions {
   }, [authLoading, refresh]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!supabase || !userId) return;
 
     const channel = supabase
-      .channel(`watch-sessions:${userId}:${channelId}`)
+      .channel(`watch-parties:${userId}:${channelId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
-          table: 'watch_session_participants',
+          table: 'watch_party_members',
           filter: `user_id=eq.${userId}`,
         },
         () => void refresh()
@@ -94,10 +89,5 @@ export function useWatchSessions(): UseWatchSessions {
     };
   }, [supabase, userId, refresh, channelId]);
 
-  return {
-    sessions,
-    invitations: sessions.filter((session) => !session.hasJoined),
-    loading: loading || authLoading,
-    refresh,
-  };
+  return { parties, loading: loading || authLoading, refresh };
 }

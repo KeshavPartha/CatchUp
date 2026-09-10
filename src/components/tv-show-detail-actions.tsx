@@ -6,13 +6,17 @@ import { Episode } from '@/lib/catalog';
 import { useMyList } from '@/hooks/use-my-list';
 import { useLikedItems } from '@/hooks/use-liked-items';
 import { useShowPlaybackTarget } from '@/hooks/use-show-playback-target';
+import { RecommendButton } from '@/components/social/recommend-button';
+import { ShareProgressControl } from '@/components/social/share-progress-control';
+import { FriendProgressStrip } from '@/components/social/friend-progress-strip';
 
 interface TVShowDetailActionsProps {
   showId: number;
+  showName: string;
   episodes: Episode[];
 }
 
-export function TVShowDetailActions({ showId, episodes }: TVShowDetailActionsProps) {
+export function TVShowDetailActions({ showId, showName, episodes }: TVShowDetailActionsProps) {
   const { myList, addToList, removeFromList } = useMyList();
   const { isLiked, toggleLike } = useLikedItems();
   const { targetEpisode, isResume } = useShowPlaybackTarget(showId, episodes);
@@ -27,7 +31,12 @@ export function TVShowDetailActions({ showId, episodes }: TVShowDetailActionsPro
     }
   };
 
+  // watch_progress stores show_id as text, so the social layer keys on the same
+  // string. Converting here keeps that conversion in one place.
+  const showKey = String(showId);
+
   return (
+    <>
     <div className="flex flex-wrap gap-3">
       {targetEpisode && (
         <Link
@@ -57,6 +66,12 @@ export function TVShowDetailActions({ showId, episodes }: TVShowDetailActionsPro
         <ThumbsUp className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
         {liked ? 'Liked' : 'Like'}
       </button>
+      <RecommendButton mediaId={showId} mediaType="tv" title={showName} />
+      <ShareProgressControl showId={showKey} title={showName} />
     </div>
+
+    {/* Only renders when a friend has explicitly shared this show. */}
+    <FriendProgressStrip showId={showKey} />
+    </>
   );
 }

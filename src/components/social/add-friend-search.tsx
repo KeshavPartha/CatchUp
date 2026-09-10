@@ -4,7 +4,8 @@ import { useCallback, useMemo, useState } from 'react';
 import { Search, UserPlus, Check, Clock } from 'lucide-react';
 import { FriendAvatar } from '@/components/social/friend-avatar';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import {
   MIN_SEARCH_LENGTH,
   displayName,
@@ -32,7 +33,9 @@ interface AddFriendSearchProps {
 export function AddFriendSearch({ onSend, busyIds, onAcceptExisting }: AddFriendSearchProps) {
   const [query, setQuery] = useState('');
   const [state, setState] = useState<SearchState>({ status: 'idle' });
-  const supabase = useMemo(() => createSocialClient(), []);
+  // null when Supabase is unconfigured -- runSearch below must settle into a
+  // safe empty state rather than calling createClient() and throwing.
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
 
   const normalized = normalizeSearchQuery(query);
   const canSearch = normalized.length >= MIN_SEARCH_LENGTH;
@@ -41,6 +44,11 @@ export function AddFriendSearch({ onSend, busyIds, onAcceptExisting }: AddFriend
     async (raw: string) => {
       const trimmed = normalizeSearchQuery(raw);
       if (trimmed.length < MIN_SEARCH_LENGTH) return;
+
+      if (!supabase) {
+        showToast('Search is unavailable right now.', 'error');
+        return;
+      }
 
       setState({ status: 'searching' });
 

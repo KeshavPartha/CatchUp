@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { displayName, listFriends, socialErrorMessage, unfriend, type Friend } from '@/lib/social';
 
@@ -39,7 +40,9 @@ export function useFriends(): UseFriends {
   const [loading, setLoading] = useState(true);
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
 
-  const supabase = useMemo(() => createSocialClient(), []);
+  // null when Supabase is unconfigured -- every caller below must treat that as
+  // an empty, signed-out state rather than calling createClient() and throwing.
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const channelId = useMemo(() => {
     channelSeq += 1;
     return channelSeq;
@@ -54,7 +57,7 @@ export function useFriends(): UseFriends {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !supabase) {
       setFriends([]);
       setLoading(false);
       return;
@@ -79,20 +82,30 @@ export function useFriends(): UseFriends {
   }, [authLoading, refresh]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !supabase) return;
 
-    // Two listeners because the viewer may be on either side of the canonical
-    // (user_a_id < user_b_id) ordering, and a filter cannot express OR.
+    // Two listeners because the viewer may be either the requester or the
+    // addressee of a given row, and a filter cannot express OR.
     const channel = supabase
       .channel(`friendships:${userId}:${channelId}`)
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'friendships', filter: `user_a_id=eq.${userId}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friendships',
+          filter: `requester_id=eq.${userId}`,
+        },
         () => void refresh()
       )
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'friendships', filter: `user_b_id=eq.${userId}` },
+        {
+          event: '*',
+          schema: 'public',
+          table: 'friendships',
+          filter: `addressee_id=eq.${userId}`,
+        },
         () => void refresh()
       )
       .subscribe();
@@ -109,6 +122,8 @@ export function useFriends(): UseFriends {
 
   const remove = useCallback(
     async (friend: Friend): Promise<boolean> => {
+      if (!supabase) return false;
+
       setBusyIds((prev) => new Set(prev).add(friend.userId));
       // Optimistic: the row leaves the list immediately.
       setFriends((prev) => prev.filter((item) => item.userId !== friend.userId));

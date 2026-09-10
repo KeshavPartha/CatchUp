@@ -2,7 +2,14 @@
 
 ## Status
 
-Design only. No realtime Watch Together implementation is included in the foundation phase.
+**Implemented** on `feature/social`. Sessions are `watch_parties`, membership is
+`watch_party_members`, and control events are appended to `watch_party_events`.
+Policies, RPCs and the sync hook are described in `SOCIAL_SPEC.md`; 41 of the
+project's RLS assertions cover this area.
+
+The host-authority model below is implemented as written. The video surface is
+the controlled `DemoPlayer`, so a party synchronises the playback clock and
+transport rather than a media element.
 
 ## Session model
 

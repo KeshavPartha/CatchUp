@@ -6,48 +6,50 @@ import Link from 'next/link';
 import { ShieldCheck, X } from 'lucide-react';
 import { showToast } from '@/components/toast';
 import { FriendAvatar } from '@/components/social/friend-avatar';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   displayName,
   listMyProgressShares,
-  revokeAllProgressShares,
-  revokeProgressShare,
+  revokeAllShowProgress,
+  revokeShowProgress,
   socialErrorMessage,
-  type MediaType,
   type ProgressShare,
 } from '@/lib/social';
-import { getMovieDetails, getPosterUrl, getTVShowDetails } from '@/lib/tmdb';
+import { getPosterUrl, getTVShowDetails } from '@/lib/catalog';
 
-interface TitleGroup {
-  mediaId: number;
-  mediaType: MediaType;
+interface ShowGroup {
+  showId: string;
   shares: ProgressShare[];
+}
+
+interface ShowInfo {
+  title: string;
+  posterPath: string | null;
 }
 
 /**
  * Everything the current user is sharing, and with whom.
  *
  * The vision requires sharing to be revocable, which is only true in practice
- * if it is also *findable*. A per-title control on a detail page is not enough:
- * a user who has forgotten what they shared has no way back to it. This is the
- * one screen that answers the question completely.
+ * if it is also *findable*. A control on a show page is not enough: a user who
+ * has forgotten what they shared has no way back to it. This is the one screen
+ * that answers the question completely.
  *
- * Because unfriending deletes the underlying grants, this list can never show a
- * share that no longer conveys anything.
+ * Because ending a friendship deletes the underlying grants, this can never
+ * list a share that no longer conveys anything.
  */
 export function PrivacyCentre() {
   const { userId, loading: authLoading } = useCurrentUser();
-  const supabase = useMemo(() => createSocialClient(), []);
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const [shares, setShares] = useState<ProgressShare[]>([]);
-  const [titles, setTitles] = useState<Record<string, { title: string; posterPath: string | null }>>(
-    {}
-  );
+  const [shows, setShows] = useState<Record<string, ShowInfo>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<ReadonlySet<string>>(new Set());
 
   const refresh = useCallback(async () => {
-    if (!userId) {
+    if (!supabase || !userId) {
       setShares([]);
       setLoading(false);
       return;
@@ -67,70 +69,62 @@ export function PrivacyCentre() {
     void refresh();
   }, [authLoading, refresh]);
 
-  const groups = useMemo<TitleGroup[]>(() => {
-    const byTitle = new Map<string, TitleGroup>();
+  // One grant covers a show, so the list is grouped by show and each person is
+  // revocable individually within it.
+  const groups = useMemo<ShowGroup[]>(() => {
+    const byShow = new Map<string, ShowGroup>();
 
     for (const share of shares) {
-      const key = `${share.mediaType}-${share.mediaId}`;
-      const existing = byTitle.get(key);
+      const existing = byShow.get(share.showId);
       if (existing) {
         existing.shares.push(share);
       } else {
-        byTitle.set(key, {
-          mediaId: share.mediaId,
-          mediaType: share.mediaType,
-          shares: [share],
-        });
+        byShow.set(share.showId, { showId: share.showId, shares: [share] });
       }
     }
 
-    return [...byTitle.values()];
+    return [...byShow.values()];
   }, [shares]);
 
-  // Resolve titles and artwork, the same way My List does.
   useEffect(() => {
     let isMounted = true;
 
     const load = async () => {
-      const missing = groups.filter((group) => !titles[`${group.mediaType}-${group.mediaId}`]);
+      const missing = groups.filter((group) => !shows[group.showId]);
       if (missing.length === 0) return;
 
       const fetched = await Promise.all(
         missing.map(async (group) => {
-          const key = `${group.mediaType}-${group.mediaId}`;
           try {
-            if (group.mediaType === 'movie') {
-              const details = await getMovieDetails(group.mediaId);
-              return [key, { title: details.title, posterPath: details.poster_path }] as const;
-            }
-            const details = await getTVShowDetails(group.mediaId);
-            return [key, { title: details.name, posterPath: details.poster_path }] as const;
+            const details = await getTVShowDetails(Number(group.showId));
+            return [group.showId, { title: details.name, posterPath: details.poster_path }] as const;
           } catch {
-            return [key, { title: 'Unavailable title', posterPath: null }] as const;
+            // A show that no longer resolves still has to be revocable, so it
+            // renders with a placeholder rather than disappearing.
+            return [group.showId, { title: 'Unavailable show', posterPath: null }] as const;
           }
         })
       );
 
       if (!isMounted) return;
-      setTitles((prev) => ({ ...prev, ...Object.fromEntries(fetched) }));
+      setShows((prev) => ({ ...prev, ...Object.fromEntries(fetched) }));
     };
 
     void load();
     return () => {
       isMounted = false;
     };
-  }, [groups, titles]);
+  }, [groups, shows]);
 
   const withBusy = useCallback(
     async (key: string, action: () => Promise<void>) => {
       setBusy((prev) => new Set(prev).add(key));
       try {
         await action();
-        await refresh();
       } catch (error) {
         showToast(socialErrorMessage(error, 'Could not stop sharing.'), 'error');
-        await refresh();
       } finally {
+        await refresh();
         setBusy((prev) => {
           const next = new Set(prev);
           next.delete(key);
@@ -157,7 +151,7 @@ export function PrivacyCentre() {
         <ShieldCheck className="mb-4 h-12 w-12 text-netflix-lightGray" />
         <h2 className="mb-2 text-xl font-semibold">You aren&rsquo;t sharing any progress</h2>
         <p className="max-w-md text-sm text-netflix-lightGray">
-          Nobody can see how far you are through anything. To share a title, open it and choose
+          Nobody can see how far you are through anything. To share a show, open it and choose
           &ldquo;Share progress&rdquo;.
         </p>
       </div>
@@ -169,18 +163,17 @@ export function PrivacyCentre() {
       <p className="flex items-start gap-2 text-sm text-netflix-lightGray">
         <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
         <span>
-          This is everything you share, in full. Each person listed can see how far you are through
-          that one title — nothing else.
+          This is everything you share, in full. Each person listed can see which episode of that
+          one show you have reached — nothing else.
         </span>
       </p>
 
       {groups.map((group) => {
-        const key = `${group.mediaType}-${group.mediaId}`;
-        const info = titles[key];
-        const href = `/${group.mediaType === 'movie' ? 'movie' : 'tv'}/${group.mediaId}`;
+        const info = shows[group.showId];
+        const href = `/tv/${group.showId}`;
 
         return (
-          <section key={key} className="rounded-lg bg-netflix-darkGray p-4">
+          <section key={group.showId} className="rounded-lg bg-netflix-darkGray p-4">
             <div className="flex gap-4">
               <Link
                 href={href}
@@ -212,11 +205,11 @@ export function PrivacyCentre() {
                   </div>
                   <button
                     type="button"
-                    disabled={busy.has(key)}
+                    disabled={busy.has(group.showId) || !supabase}
                     onClick={() =>
-                      void withBusy(key, () =>
-                        revokeAllProgressShares(supabase, group.mediaId, group.mediaType)
-                      )
+                      void withBusy(group.showId, async () => {
+                        if (supabase) await revokeAllShowProgress(supabase, group.showId);
+                      })
                     }
                     className="shrink-0 rounded bg-red-600/20 px-3 py-1.5 text-xs font-semibold text-red-400 transition-colors hover:bg-red-600/30 disabled:opacity-50"
                   >
@@ -226,7 +219,7 @@ export function PrivacyCentre() {
 
                 <ul className="flex flex-wrap gap-2">
                   {group.shares.map((share) => {
-                    const personKey = `${key}-${share.userId}`;
+                    const personKey = `${group.showId}-${share.userId}`;
                     return (
                       <li
                         key={share.userId}
@@ -236,19 +229,16 @@ export function PrivacyCentre() {
                         <span className="text-xs font-medium">{displayName(share)}</span>
                         <button
                           type="button"
-                          disabled={busy.has(personKey)}
+                          disabled={busy.has(personKey) || !supabase}
                           onClick={() =>
-                            void withBusy(personKey, () =>
-                              revokeProgressShare(
-                                supabase,
-                                group.mediaId,
-                                group.mediaType,
-                                share.userId
-                              )
-                            )
+                            void withBusy(personKey, async () => {
+                              if (supabase) {
+                                await revokeShowProgress(supabase, group.showId, share.userId);
+                              }
+                            })
                           }
                           className="rounded-full p-0.5 text-netflix-lightGray transition-colors hover:bg-netflix-black hover:text-white disabled:opacity-50"
-                          aria-label={`Stop sharing ${info?.title ?? 'this title'} with ${displayName(share)}`}
+                          aria-label={`Stop sharing ${info?.title ?? 'this show'} with ${displayName(share)}`}
                         >
                           <X className="h-3 w-3" />
                         </button>

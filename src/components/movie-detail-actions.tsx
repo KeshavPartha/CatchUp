@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { MovieDetails } from '@/lib/catalog';
 import { useMyList } from '@/hooks/use-my-list';
 import { useLikedItems } from '@/hooks/use-liked-items';
+import { RecommendButton } from '@/components/social/recommend-button';
 import { useWatchProgress } from '@/hooks/use-watch-progress';
 
 interface MovieDetailActionsProps {
@@ -53,6 +54,9 @@ export function MovieDetailActions({ movie }: MovieDetailActionsProps) {
         <ThumbsUp className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
         {liked ? 'Liked' : 'Like'}
       </button>
+      {/* Movies have no show_id, so progress sharing and watch parties -- both
+          keyed on a show -- do not apply to them. Recommending does. */}
+      <RecommendButton mediaId={movie.id} mediaType="movie" title={movie.title} />
     </div>
   );
 }

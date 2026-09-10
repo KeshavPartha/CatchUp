@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, ArrowRight } from 'lucide-react';
 import { EpisodePlayer } from '@/components/episode-player';
+import { WatchTogetherButton } from '@/components/social/watch-together-button';
 import { getEpisodeById, getTVShowDetails } from '@/lib/catalog';
 
 interface EpisodePageProps {
@@ -41,6 +42,21 @@ export default async function EpisodePage({ params }: EpisodePageProps) {
           <p className="mt-3 max-w-3xl text-netflix-lightGray">{episode.overview}</p>
         </header>
         <EpisodePlayer episode={episode} showName={show.name} />
+        {/*
+          Watch Together is episode-scoped: WATCH_TOGETHER_SPEC defines a
+          session as "for a specific show and episode", so the launcher belongs
+          here rather than on the show page.
+        */}
+        <div className="flex flex-wrap items-center gap-3">
+          <WatchTogetherButton
+            showId={show.id}
+            episodeId={episode.id}
+            episodeName={episode.name}
+          />
+          <p className="text-xs text-netflix-lightGray">
+            Starts a synchronised session you can invite friends into.
+          </p>
+        </div>
         {nextEpisode && (
           <Link href={`/tv/${show.id}/episode/${nextEpisode.id}`} className="flex items-center justify-between rounded-lg border border-netflix-gray p-4 hover:bg-netflix-gray/30">
             <span>

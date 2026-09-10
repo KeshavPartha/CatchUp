@@ -2,12 +2,12 @@
 
 import { useFriendRequests } from '@/hooks/use-friend-requests';
 import { useRecommendations } from '@/hooks/use-recommendations';
-import { useWatchSessions } from '@/hooks/use-watch-sessions';
+import { useWatchParties } from '@/hooks/use-watch-parties';
 
 /**
  * Live count of everything on the Friends page waiting for the user: pending
- * friend requests, recommendations they have not opened, and un-accepted Watch
- * Together invitations.
+ * friend requests, recommendations they have not opened, and live Watch
+ * Together sessions.
  *
  * Deliberately a separate component rather than logic inside `Header`: the
  * header is shared across workstreams, so keeping the data dependency here
@@ -18,9 +18,9 @@ import { useWatchSessions } from '@/hooks/use-watch-sessions';
 export function SocialNavBadge() {
   const { pendingCount } = useFriendRequests();
   const { unseenCount } = useRecommendations();
-  const { invitations } = useWatchSessions();
+  const { parties } = useWatchParties();
 
-  const total = pendingCount + unseenCount + invitations.length;
+  const total = pendingCount + unseenCount + parties.length;
   if (total <= 0) return null;
 
   return (

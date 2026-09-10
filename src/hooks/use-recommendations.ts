@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   listIncomingRecommendations,
@@ -18,13 +19,13 @@ import {
 let channelSeq = 0;
 
 interface UseRecommendations {
-  /** Open recommendations: pending and seen, newest first. */
+  /** Open recommendations: unread and read, newest first. */
   incoming: Recommendation[];
   loading: boolean;
-  /** Unopened recommendations -- drives the inbox badge. */
+  /** Unread recommendations -- drives the inbox badge. */
   unseenCount: number;
   busyIds: ReadonlySet<string>;
-  /** Marks everything currently pending as seen. */
+  /** Marks everything currently unread as read. */
   markAllSeen: () => Promise<void>;
   dismiss: (recommendationId: string) => Promise<boolean>;
   markAdded: (recommendationId: string) => Promise<boolean>;
@@ -44,7 +45,9 @@ export function useRecommendations(): UseRecommendations {
   const [loading, setLoading] = useState(true);
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
 
-  const supabase = useMemo(() => createSocialClient(), []);
+  // null when Supabase is unconfigured -- every caller below must treat that as
+  // an empty, signed-out state rather than calling createClient() and throwing.
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const channelId = useMemo(() => {
     channelSeq += 1;
     return channelSeq;
@@ -59,7 +62,7 @@ export function useRecommendations(): UseRecommendations {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !supabase) {
       setIncoming([]);
       setLoading(false);
       return;
@@ -84,7 +87,7 @@ export function useRecommendations(): UseRecommendations {
   }, [authLoading, refresh]);
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !supabase) return;
 
     const channel = supabase
       .channel(`recommendations:${userId}:${channelId}`)
@@ -93,7 +96,7 @@ export function useRecommendations(): UseRecommendations {
         {
           event: '*',
           schema: 'public',
-          table: 'recommendations',
+          table: 'show_recommendations',
           filter: `recipient_id=eq.${userId}`,
         },
         () => void refresh()
@@ -108,16 +111,18 @@ export function useRecommendations(): UseRecommendations {
   const respond = useCallback(
     async (
       recommendationId: string,
-      status: 'dismissed' | 'added',
+      status: 'dismissed' | 'read',
       success: string
     ): Promise<boolean> => {
+      if (!supabase) return false;
+
       setBusyIds((prev) => new Set(prev).add(recommendationId));
       // Optimistic: acting on a recommendation removes it from the inbox.
       setIncoming((prev) => prev.filter((item) => item.recommendationId !== recommendationId));
 
       try {
         await setRecommendationStatus(supabase, recommendationId, status);
-        showToast(success, status === 'added' ? 'success' : 'info');
+        showToast(success, status === 'read' ? 'success' : 'info');
         await refresh();
         return true;
       } catch (error) {
@@ -143,7 +148,7 @@ export function useRecommendations(): UseRecommendations {
   );
 
   const markAdded = useCallback(
-    (recommendationId: string) => respond(recommendationId, 'added', 'Added to My List'),
+    (recommendationId: string) => respond(recommendationId, 'read', 'Added to My List'),
     [respond]
   );
 
@@ -153,16 +158,18 @@ export function useRecommendations(): UseRecommendations {
    * an unread badge that lingers is not worth interrupting anyone over.
    */
   const markAllSeen = useCallback(async () => {
-    const pending = incoming.filter((item) => item.status === 'pending');
+    if (!supabase) return;
+
+    const pending = incoming.filter((item) => item.status === 'unread');
     if (pending.length === 0) return;
 
     setIncoming((prev) =>
-      prev.map((item) => (item.status === 'pending' ? { ...item, status: 'seen' } : item))
+      prev.map((item) => (item.status === 'unread' ? { ...item, status: 'read' } : item))
     );
 
     await Promise.all(
       pending.map((item) =>
-        setRecommendationStatus(supabase, item.recommendationId, 'seen').catch(() => undefined)
+        setRecommendationStatus(supabase, item.recommendationId, 'read').catch(() => undefined)
       )
     );
   }, [incoming, supabase]);
@@ -170,7 +177,7 @@ export function useRecommendations(): UseRecommendations {
   return {
     incoming,
     loading: loading || authLoading,
-    unseenCount: incoming.filter((item) => item.status === 'pending').length,
+    unseenCount: incoming.filter((item) => item.status === 'unread').length,
     busyIds,
     markAllSeen,
     dismiss,

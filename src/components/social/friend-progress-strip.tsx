@@ -3,11 +3,11 @@
 import { FriendAvatar } from '@/components/social/friend-avatar';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useProgressSharing } from '@/hooks/use-progress-sharing';
-import { displayName, type FriendProgress, type MediaType } from '@/lib/social';
+import { displayName, type FriendShowProgress } from '@/lib/social';
 
 interface FriendProgressStripProps {
-  mediaId: number;
-  mediaType: MediaType;
+  /** Stable catalog show id, as stored on watch_progress.show_id. */
+  showId: string;
 }
 
 /**
@@ -18,14 +18,13 @@ interface FriendProgressStripProps {
  * silence is the point: the absence of this strip is what "no automatic
  * sharing" looks like from the outside.
  *
- * Progress is currently a whole-title percentage, because `watch_progress` has
- * no season or episode columns yet. Once episode-level progress lands (a shared
- * prerequisite with the AI workstream -- see docs/SOCIAL_SPEC.md), this is the
- * component that should say "on S2E6" instead of a percentage.
+ * Reports the episode boundary rather than a raw percentage: "S2 E6" is what a
+ * viewer actually wants to know about a friend, and it is the same boundary
+ * Catch Me Up uses, so the two features describe progress the same way.
  */
-export function FriendProgressStrip({ mediaId, mediaType }: FriendProgressStripProps) {
+export function FriendProgressStrip({ showId }: FriendProgressStripProps) {
   const { userId } = useCurrentUser();
-  const { friendProgress, loading } = useProgressSharing(mediaId, mediaType);
+  const { friendProgress, loading } = useProgressSharing(showId);
 
   if (!userId || loading || friendProgress.length === 0) return null;
 
@@ -45,14 +44,14 @@ export function FriendProgressStrip({ mediaId, mediaType }: FriendProgressStripP
                 <div
                   className="h-1 flex-1 overflow-hidden rounded-full bg-netflix-gray"
                   role="progressbar"
-                  aria-valuenow={friend.progress}
+                  aria-valuenow={friend.progressPercent}
                   aria-valuemin={0}
                   aria-valuemax={100}
-                  aria-label={`${displayName(friend)} is ${friend.progress}% through`}
+                  aria-label={`${displayName(friend)} is ${progressLabel(friend)}`}
                 >
                   <div
                     className="h-full rounded-full bg-netflix-red"
-                    style={{ width: `${clamp(friend.progress)}%` }}
+                    style={{ width: `${clamp(friend.progressPercent)}%` }}
                   />
                 </div>
                 <span className="shrink-0 text-xs text-netflix-lightGray">
@@ -71,7 +70,10 @@ function clamp(progress: number): number {
   return Math.min(100, Math.max(0, progress));
 }
 
-function progressLabel(friend: FriendProgress): string {
-  if (friend.progress >= 100) return 'Finished';
-  return `${clamp(friend.progress)}%`;
+/** The episode boundary, falling back to a percentage when it is unknown. */
+function progressLabel(friend: FriendShowProgress): string {
+  if (friend.seasonNumber !== null && friend.episodeNumber !== null) {
+    return `S${friend.seasonNumber} E${friend.episodeNumber}`;
+  }
+  return `${clamp(friend.progressPercent)}%`;
 }

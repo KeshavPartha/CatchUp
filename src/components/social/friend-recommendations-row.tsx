@@ -7,7 +7,7 @@ import { Play } from 'lucide-react';
 import { FriendAvatar } from '@/components/social/friend-avatar';
 import { useRecommendations } from '@/hooks/use-recommendations';
 import { displayName, type Recommendation } from '@/lib/social';
-import { getMovieDetails, getPosterUrl, getTVShowDetails } from '@/lib/tmdb';
+import { getBackdropUrl, getMovieDetails, getPosterUrl, getTVShowDetails } from '@/lib/catalog';
 
 interface RecommendedItem {
   recommendation: Recommendation;
@@ -61,8 +61,9 @@ export function FriendRecommendationsRow() {
               posterPath: details.poster_path,
             };
           } catch {
-            // Drop titles TMDB cannot resolve rather than showing a broken
-            // card in a browse row. The inbox on /friends still lists them.
+            // Drop titles the catalog cannot resolve rather than showing a
+            // broken card in a browse row. The inbox on /friends still lists
+            // them.
             return null;
           }
         })
@@ -97,11 +98,7 @@ export function FriendRecommendationsRow() {
               <Link href={href} className="group block">
                 <div className="relative aspect-video overflow-hidden rounded-md bg-netflix-gray">
                   <Image
-                    src={
-                      backdropPath
-                        ? `https://image.tmdb.org/t/p/w500${backdropPath}`
-                        : getPosterUrl(posterPath)
-                    }
+                    src={backdropPath ? getBackdropUrl(backdropPath) : getPosterUrl(posterPath)}
                     alt={title}
                     fill
                     sizes="(max-width: 768px) 12rem, 18rem"

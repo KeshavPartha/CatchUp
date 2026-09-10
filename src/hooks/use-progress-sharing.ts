@@ -2,18 +2,18 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   displayName,
-  listFriendProgress,
+  listFriendShowProgress,
   listShareTargets,
-  revokeAllProgressShares,
-  revokeProgressShare,
-  shareProgress,
+  revokeAllShowProgress,
+  revokeShowProgress,
+  shareShowProgress,
   socialErrorMessage,
-  type FriendProgress,
-  type MediaType,
+  type FriendShowProgress,
   type ShareTarget,
 } from '@/lib/social';
 
@@ -21,12 +21,11 @@ import {
 let channelSeq = 0;
 
 interface UseProgressSharing {
-  /** Friends who could be shared this title, flagged with the current state. */
+  /** Friends who could be shared this show, flagged with the current state. */
   targets: ShareTarget[];
-  /** Friends who have shared THIS title with the current user. */
-  friendProgress: FriendProgress[];
+  /** Friends who have shared THIS show with the current user. */
+  friendProgress: FriendShowProgress[];
   loading: boolean;
-  /** How many friends this title is currently shared with. */
   sharedCount: number;
   busyIds: ReadonlySet<string>;
   toggle: (target: ShareTarget) => Promise<void>;
@@ -35,25 +34,26 @@ interface UseProgressSharing {
 }
 
 /**
- * Sharing state for a single title, in both directions: who the current user
+ * Sharing state for a single show, in both directions: who the current user
  * shares it with, and which friends share it back.
  *
- * Scoped to one title on purpose. The vision's promise is that sharing is
+ * Scoped to one show on purpose. The vision's promise is that sharing is
  * "explicit, opt-in, revocable, and scoped to a chosen show", so there is
  * deliberately no API here for sharing everything at once -- the shape of the
  * hook mirrors the shape of the permission.
+ *
+ * Show-level rather than episode-level because that is the grain the
+ * permission is stored at: one grant covers a show, and the friend view then
+ * reports how far through that show each friend is.
  */
-export function useProgressSharing(
-  mediaId: number,
-  mediaType: MediaType
-): UseProgressSharing {
+export function useProgressSharing(showId: string | null): UseProgressSharing {
   const { userId, loading: authLoading } = useCurrentUser();
   const [targets, setTargets] = useState<ShareTarget[]>([]);
-  const [friendProgress, setFriendProgress] = useState<FriendProgress[]>([]);
+  const [friendProgress, setFriendProgress] = useState<FriendShowProgress[]>([]);
   const [loading, setLoading] = useState(true);
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
 
-  const supabase = useMemo(() => createSocialClient(), []);
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const channelId = useMemo(() => {
     channelSeq += 1;
     return channelSeq;
@@ -68,7 +68,7 @@ export function useProgressSharing(
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!userId) {
+    if (!supabase || !userId || !showId) {
       setTargets([]);
       setFriendProgress([]);
       setLoading(false);
@@ -77,20 +77,21 @@ export function useProgressSharing(
 
     try {
       const [targetRows, progressRows] = await Promise.all([
-        listShareTargets(supabase, mediaId, mediaType),
-        listFriendProgress(supabase, mediaId, mediaType),
+        listShareTargets(supabase, showId),
+        listFriendShowProgress(supabase, showId),
       ]);
 
       if (!mounted.current) return;
       setTargets(targetRows);
       setFriendProgress(progressRows);
     } catch (error) {
-      if (!mounted.current) return;
-      showToast(socialErrorMessage(error, 'Could not load sharing settings.'), 'error');
+      if (mounted.current) {
+        showToast(socialErrorMessage(error, 'Could not load sharing settings.'), 'error');
+      }
     } finally {
       if (mounted.current) setLoading(false);
     }
-  }, [supabase, userId, mediaId, mediaType]);
+  }, [supabase, userId, showId]);
 
   useEffect(() => {
     if (authLoading) return;
@@ -99,9 +100,9 @@ export function useProgressSharing(
   }, [authLoading, refresh]);
 
   // A friend starting or stopping a share should show up without a reload --
-  // and so should a share of ours being revoked because a friendship ended.
+  // and so should one of ours being revoked because a friendship ended.
   useEffect(() => {
-    if (!userId) return;
+    if (!supabase || !userId) return;
 
     const channel = supabase
       .channel(`progress-shares:${userId}:${channelId}`)
@@ -112,12 +113,7 @@ export function useProgressSharing(
       )
       .on(
         'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'progress_shares',
-          filter: `shared_with_user_id=eq.${userId}`,
-        },
+        { event: '*', schema: 'public', table: 'progress_shares', filter: `friend_id=eq.${userId}` },
         () => void refresh()
       )
       .subscribe();
@@ -129,6 +125,8 @@ export function useProgressSharing(
 
   const toggle = useCallback(
     async (target: ShareTarget) => {
+      if (!supabase || !showId) return;
+
       setBusyIds((prev) => new Set(prev).add(target.userId));
       const nextShared = !target.isShared;
 
@@ -141,10 +139,10 @@ export function useProgressSharing(
 
       try {
         if (nextShared) {
-          await shareProgress(supabase, mediaId, mediaType, target.userId);
-          showToast(`Sharing your progress with ${displayName(target)}`, 'success');
+          await shareShowProgress(supabase, showId, target.userId);
+          showToast(`Sharing this show with ${displayName(target)}`, 'success');
         } else {
-          await revokeProgressShare(supabase, mediaId, mediaType, target.userId);
+          await revokeShowProgress(supabase, showId, target.userId);
           showToast(`Stopped sharing with ${displayName(target)}`, 'info');
         }
         await refresh();
@@ -161,21 +159,23 @@ export function useProgressSharing(
         }
       }
     },
-    [supabase, mediaId, mediaType, refresh]
+    [supabase, showId, refresh]
   );
 
   const revokeAll = useCallback(async () => {
+    if (!supabase || !showId) return;
+
     setTargets((prev) => prev.map((item) => ({ ...item, isShared: false })));
 
     try {
-      await revokeAllProgressShares(supabase, mediaId, mediaType);
-      showToast('Stopped sharing this title', 'info');
+      await revokeAllShowProgress(supabase, showId);
+      showToast('Stopped sharing this show', 'info');
       await refresh();
     } catch (error) {
       showToast(socialErrorMessage(error, 'Could not stop sharing.'), 'error');
       await refresh();
     }
-  }, [supabase, mediaId, mediaType, refresh]);
+  }, [supabase, showId, refresh]);
 
   return {
     targets,

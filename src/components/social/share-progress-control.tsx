@@ -7,11 +7,11 @@ import { cn } from '@/lib/utils';
 import { FriendAvatar } from '@/components/social/friend-avatar';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import { useProgressSharing } from '@/hooks/use-progress-sharing';
-import { displayName, handle, type MediaType } from '@/lib/social';
+import { displayName, handle } from '@/lib/social';
 
 interface ShareProgressControlProps {
-  mediaId: number;
-  mediaType: MediaType;
+  /** Stable catalog show id, as stored on watch_progress.show_id. */
+  showId: string;
   title: string;
 }
 
@@ -22,13 +22,11 @@ interface ShareProgressControlProps {
  * Scoped to one title by construction. There is no "share everything" affordance
  * anywhere in the UI, because there is no such permission in the database.
  */
-export function ShareProgressControl({ mediaId, mediaType, title }: ShareProgressControlProps) {
+export function ShareProgressControl({ showId, title }: ShareProgressControlProps) {
   const { userId } = useCurrentUser();
   const [open, setOpen] = useState(false);
-  const { targets, sharedCount, busyIds, loading, toggle, revokeAll } = useProgressSharing(
-    mediaId,
-    mediaType
-  );
+  const { targets, sharedCount, busyIds, loading, toggle, revokeAll } =
+    useProgressSharing(showId);
 
   if (!userId) return null;
 
@@ -138,8 +136,8 @@ function SharePanel({
         <p className="flex items-start gap-2 border-b border-netflix-gray bg-netflix-black/40 p-5 text-sm text-netflix-lightGray">
           <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0" />
           <span>
-            Only this title, only the people you pick here, and only how far along you are — never
-            anything else you watch. You can stop at any time.
+            Only this show, only the people you pick here, and only which episode you have
+            reached — never anything else you watch. You can stop at any time.
           </span>
         </p>
 

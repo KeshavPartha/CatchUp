@@ -12,7 +12,7 @@ import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { AddFriendSearch } from '@/components/social/add-friend-search';
 import { RecommendationInbox } from '@/components/social/recommendation-inbox';
 import { PrivacyCentre } from '@/components/social/privacy-centre';
-import { WatchSessionBanner } from '@/components/social/watch-session-banner';
+import { WatchPartyBanner } from '@/components/social/watch-party-banner';
 import { useRecommendations } from '@/hooks/use-recommendations';
 
 type Tab = 'friends' | 'recommendations' | 'requests' | 'sharing' | 'add';
@@ -128,7 +128,7 @@ export default function FriendsPage() {
           </span>
         </p>
 
-        <WatchSessionBanner />
+        <WatchPartyBanner />
 
         <div
           role="tablist"

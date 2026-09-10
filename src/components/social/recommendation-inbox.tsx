@@ -8,7 +8,7 @@ import { FriendAvatar } from '@/components/social/friend-avatar';
 import { useRecommendations } from '@/hooks/use-recommendations';
 import { useMyList } from '@/hooks/use-my-list';
 import { displayName, type Recommendation } from '@/lib/social';
-import { getMovieDetails, getPosterUrl, getTVShowDetails } from '@/lib/tmdb';
+import { getMovieDetails, getPosterUrl, getTVShowDetails } from '@/lib/catalog';
 
 interface TitleInfo {
   title: string;
@@ -19,7 +19,7 @@ interface TitleInfo {
 /**
  * Recommendations sent to the current user.
  *
- * The recommendation rows carry only a TMDB id, so titles and artwork are
+ * The recommendation rows carry only a catalog id, so titles and artwork are
  * fetched client-side per item -- the same approach My List and Continue
  * Watching already take. Details are cached in component state so re-renders
  * (and Realtime refreshes) do not re-fetch what is already known.
@@ -181,7 +181,7 @@ export function RecommendationInbox() {
                   <X className="h-4 w-4" />
                   <span className="hidden sm:inline">Not for me</span>
                 </button>
-                {item.status === 'seen' && (
+                {item.status === 'read' && (
                   <span className="ml-auto flex items-center gap-1 self-center text-xs text-netflix-lightGray">
                     <Check className="h-3 w-3" />
                     Seen

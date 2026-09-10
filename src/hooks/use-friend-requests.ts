@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   acceptFriendRequest,
@@ -56,8 +57,10 @@ export function useFriendRequests(): UseFriendRequests {
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
 
   // One client for the lifetime of the hook: Realtime channels are bound to a
-  // connection, so a fresh client per render would leak sockets.
-  const supabase = useMemo(() => createSocialClient(), []);
+  // connection, so a fresh client per render would leak sockets. null when
+  // Supabase is unconfigured -- every caller below must treat that as an
+  // empty, signed-out state rather than calling createClient() and throwing.
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const channelId = useMemo(() => {
     channelSeq += 1;
     return channelSeq;
@@ -72,7 +75,7 @@ export function useFriendRequests(): UseFriendRequests {
   }, []);
 
   const refresh = useCallback(async () => {
-    if (!userId) {
+    if (!userId || !supabase) {
       setIncoming([]);
       setOutgoing([]);
       setLoading(false);
@@ -105,8 +108,11 @@ export function useFriendRequests(): UseFriendRequests {
 
   // Live updates.
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || !supabase) return;
 
+    // Requests share the `friendships` table with the accepted-friend graph
+    // (see use-friends.ts), so any change to a row the viewer is party to --
+    // pending or otherwise -- re-triggers a refresh here too.
     const channel = supabase
       .channel(`friend-requests:${userId}:${channelId}`)
       .on(
@@ -114,8 +120,8 @@ export function useFriendRequests(): UseFriendRequests {
         {
           event: '*',
           schema: 'public',
-          table: 'friend_requests',
-          filter: `recipient_id=eq.${userId}`,
+          table: 'friendships',
+          filter: `addressee_id=eq.${userId}`,
         },
         () => void refresh()
       )
@@ -124,10 +130,10 @@ export function useFriendRequests(): UseFriendRequests {
         {
           event: '*',
           schema: 'public',
-          table: 'friend_requests',
+          table: 'friendships',
           // A separate listener because PostgREST filters cannot express OR
           // across two columns.
-          filter: `sender_id=eq.${userId}`,
+          filter: `requester_id=eq.${userId}`,
         },
         () => void refresh()
       )
@@ -140,6 +146,8 @@ export function useFriendRequests(): UseFriendRequests {
 
   const withBusy = useCallback(
     async (id: string, action: () => Promise<void>, failure: string): Promise<boolean> => {
+      if (!supabase) return false;
+
       setBusyIds((prev) => new Set(prev).add(id));
 
       try {
@@ -161,7 +169,7 @@ export function useFriendRequests(): UseFriendRequests {
         }
       }
     },
-    [refresh]
+    [supabase, refresh]
   );
 
   const send = useCallback(
@@ -169,6 +177,7 @@ export function useFriendRequests(): UseFriendRequests {
       withBusy(
         recipientId,
         async () => {
+          if (!supabase) return;
           await sendFriendRequest(supabase, recipientId);
           showToast('Friend request sent', 'success');
         },
@@ -185,6 +194,7 @@ export function useFriendRequests(): UseFriendRequests {
       return withBusy(
         requestId,
         async () => {
+          if (!supabase) return;
           await acceptFriendRequest(supabase, requestId);
           showToast("You're now friends", 'success');
         },
@@ -201,6 +211,7 @@ export function useFriendRequests(): UseFriendRequests {
       return withBusy(
         requestId,
         async () => {
+          if (!supabase) return;
           await declineFriendRequest(supabase, requestId);
           showToast('Request declined', 'info');
         },
@@ -217,6 +228,7 @@ export function useFriendRequests(): UseFriendRequests {
       return withBusy(
         requestId,
         async () => {
+          if (!supabase) return;
           await cancelFriendRequest(supabase, requestId);
           showToast('Request withdrawn', 'info');
         },

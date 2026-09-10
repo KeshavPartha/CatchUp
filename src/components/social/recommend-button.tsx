@@ -6,7 +6,8 @@ import { Check, Send, Users, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { showToast } from '@/components/toast';
 import { FriendAvatar } from '@/components/social/friend-avatar';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { useCurrentUser } from '@/hooks/use-current-user';
 import {
   MAX_NOTE_LENGTH,
@@ -66,7 +67,10 @@ interface RecommendModalProps extends RecommendButtonProps {
 }
 
 function RecommendModal({ mediaId, mediaType, title, onClose }: RecommendModalProps) {
-  const supabase = useMemo(() => createSocialClient(), []);
+  // null when Supabase is unconfigured -- the effect and send() below must
+  // settle into a safe empty state rather than calling createClient() and
+  // throwing.
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const [targets, setTargets] = useState<RecommendationTarget[]>([]);
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set());
   const [note, setNote] = useState('');
@@ -90,6 +94,11 @@ function RecommendModal({ mediaId, mediaType, title, onClose }: RecommendModalPr
     let isMounted = true;
 
     const load = async () => {
+      if (!supabase) {
+        if (isMounted) setLoading(false);
+        return;
+      }
+
       try {
         const rows = await listRecommendationTargets(supabase, mediaId, mediaType);
         if (isMounted) setTargets(rows);
@@ -119,7 +128,7 @@ function RecommendModal({ mediaId, mediaType, title, onClose }: RecommendModalPr
   }, []);
 
   const send = useCallback(async () => {
-    if (selected.size === 0) return;
+    if (selected.size === 0 || !supabase) return;
     setSending(true);
 
     // Settled rather than all-or-nothing: one failed recipient should not

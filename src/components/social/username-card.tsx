@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { AtSign, Check, Copy, Edit2 } from 'lucide-react';
 import { showToast } from '@/components/toast';
-import { createSocialClient } from '@/lib/social/client';
+import { createClient } from '@/lib/supabase/client';
+import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { setUsername, socialErrorMessage } from '@/lib/social';
 
 /**
@@ -14,7 +15,9 @@ import { setUsername, socialErrorMessage } from '@/lib/social';
  * make that easy to read, change, and copy.
  */
 export function UsernameCard({ userId }: { userId: string }) {
-  const supabase = useMemo(() => createSocialClient(), []);
+  // null when Supabase is unconfigured -- load() and save() below must settle
+  // into a safe empty state rather than calling createClient() and throwing.
+  const supabase = useMemo(() => (isSupabaseConfigured ? createClient() : null), []);
   const [username, setUsernameValue] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(false);
@@ -26,6 +29,11 @@ export function UsernameCard({ userId }: { userId: string }) {
     let isMounted = true;
 
     const load = async () => {
+      if (!supabase) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('profiles')
         .select('username')
@@ -51,6 +59,11 @@ export function UsernameCard({ userId }: { userId: string }) {
     const next = draft.trim().toLowerCase();
     if (!next || next === username) {
       setEditing(false);
+      return;
+    }
+
+    if (!supabase) {
+      showToast('Could not update your username.', 'error');
       return;
     }
 
