@@ -33,16 +33,18 @@ decision below.
 
 | Area | State |
 | --- | --- |
-| Friend graph schema (migration 001) | **Written, not yet applied or verified.** Blocked on the baseline `supabase-schema.sql` work in progress. |
-| RLS privacy test suite | Partially written; deliberately not run until the baseline settles. |
-| Social repository layer (`src/lib/social/`) | Implemented, typechecks clean. |
-| Friend hooks + `/friends` UI | Implemented, builds clean. |
-| Recommendations | Not started. |
-| Per-show progress sharing | Not started. |
-| Watch Together | Not started. |
+| Friend graph (migration 001) | Implemented. Applies cleanly; 52 assertions pass. |
+| Recommendations (migration 002) | Implemented. 24 assertions pass. |
+| Per-title progress sharing (migration 003) | Implemented. 30 assertions pass. |
+| RLS privacy suites | 106 assertions across 3 suites, `npm run test:rls`. |
+| Social repository, hooks, UI | Implemented; typechecks, lints and builds clean. |
+| Watch Together | Not started. Blocked — see §9. |
 
-Milestone 1 is "friend graph, end to end". Its application code is complete;
-its database half is staged pending coordination.
+All three migrations have been verified against a scratch PostgreSQL database
+built from the current `supabase-schema.sql`. **They have not been applied to a
+real Supabase project**, and the baseline schema was under active revision by
+the other workstream when this was written, so a re-verification pass is needed
+once that settles. `supabase-schema.sql` itself remains untouched.
 
 ---
 
@@ -156,13 +158,19 @@ render the right action without a second query that would itself leak state.
 filter**, relying entirely on RLS to scope rows. That was safe only for as long
 as `watch_progress` had exactly one SELECT policy.
 
-Because Postgres ORs permissive policies, the friend-read policy that per-show
-progress sharing will add **can only widen what that query returns** — and an
-unfiltered `SELECT` would then silently list a friend's shows inside the user's
-own Continue Watching row. A privacy leak introduced by a change in a different
+Because Postgres ORs permissive policies, the friend-read policy added by
+migration 003 **can only widen what that query returns** — and an unfiltered
+`SELECT` would then silently list a friend's shows inside the user's own
+Continue Watching row. A privacy leak introduced by a change in a different
 file, with nothing in the query itself to review.
 
 Fixed ahead of the sharing work, with the reasoning recorded at the call site.
+
+**This is not hypothetical, and the suite proves it.** With one share live,
+`rls_progress_sharing.sql` asserts that an unfiltered read of `watch_progress`
+returns *two* rows for the recipient — their own, plus the row shared with them —
+while the same query filtered by `user_id` returns one. The leak is real; the
+filter is what prevents it.
 
 **Standing rules this establishes:**
 
@@ -184,20 +192,39 @@ no secrets. `grants.sql` then replicates Supabase's permissive default grants,
 so the suite exercises RLS under production-like conditions rather than passing
 because a missing `GRANT` happened to block the statement.
 
+Each suite gets its own freshly built database. That isolation is deliberate:
+suites seed their own users, so a shared database let one suite's rows change
+another's counts and made results depend on filename order.
+
 Tests impersonate users via `SET LOCAL ROLE authenticated` plus
 `request.jwt.claims`, and **assert the negatives**. A suite that only proves
-sharing works has tested nothing. Required cases:
+sharing works has tested nothing. Among the 106 assertions:
 
 - A stranger reads another user's progress → 0 rows
 - A friend with no share reads progress → 0 rows
-- A friend with a share on show X reads show Y → 0 rows *(per-show scoping)*
+- A friend with a share on show X reads show Y → 0 rows *(per-title scoping)*
 - Revoked, then read → 0 rows
 - Unfriended while a share is live, then read → 0 rows *(friendship re-checked at read time)*
-- A user's own Continue Watching returns only their rows while shares to them exist *(§5 regression)*
+- A friend with a share cannot UPDATE or DELETE the progress they can see
 - Forged `sender_id` on a request → rejected
-- Direct `INSERT INTO friendships` → rejected *(the §3.1 guarantee)*
+- Direct `INSERT INTO friendships` → rejected, even for a participant *(the §3.1 guarantee)*
+- A stranger cannot grant themselves a share of someone else's progress
 - Recommendation to a non-friend → rejected
-- `search_users('parti')` → 0 rows *(no enumeration)*
+- Being recommended a title reveals nothing about the sender's progress on it
+- `search_users('car')` → 0 rows *(exact match only; no enumeration)*
+
+### 6.1 The suites are mutation-tested
+
+A suite that has never failed proves nothing. Two deliberate breakages were
+introduced and confirmed caught:
+
+| Mutation | Caught by |
+| --- | --- |
+| Add an INSERT policy to `friendships` | *"Carol cannot insert herself into a friendship"* |
+| Drop the per-title condition from the `watch_progress` friend-read policy | *"but NOT the other show Gina is watching"* |
+
+The second is the important one: it verifies that the suite would actually
+notice if sharing one title started leaking every title.
 
 ---
 
@@ -252,13 +279,19 @@ real failure mode.
 
 ```
 supabase/migrations/001_social_friend_graph.sql   friend graph, RLS, RPCs, Realtime
-supabase/tests/bootstrap.sql, grants.sql          Supabase-on-plain-Postgres shim
+supabase/migrations/002_social_recommendations.sql
+supabase/migrations/003_progress_sharing.sql
+supabase/tests/                                   Supabase-on-plain-Postgres shim + 3 suites
 src/lib/social/                                   typed repository + errors
 src/hooks/use-current-user.ts                     verified auth identity
 src/hooks/use-friends.ts                          live friend list
 src/hooks/use-friend-requests.ts                  live request inbox
-src/app/friends/page.tsx                          friends / requests / add
-src/components/social/                            avatar, cards, search, badge, username
+src/hooks/use-recommendations.ts                  live recommendation inbox
+src/hooks/use-progress-sharing.ts                 per-title sharing, both directions
+src/app/friends/page.tsx                          friends / recommended / requests / sharing / add
+src/components/social/                            avatar, cards, search, badge, username,
+                                                  recommend, share control, friend progress,
+                                                  privacy centre
 ```
 
 ### 8.1 Realtime, deliberately early
@@ -276,41 +309,38 @@ on the same mechanism for playback synchronization. `friendships` carries
 
 ## 9. Planned work
 
-### 9.1 Recommendations (next)
+### 9.1 Watch Together — the remaining milestone
 
-`recommendations(id, sender_id, recipient_id, media_id, media_type, note,
-status, created_at)`, status `pending | seen | dismissed | added`.
+Everything above is the authorization substrate this sits on. `friendships` is
+the invite ACL, reusing the same `are_friends()` the other policies call, so
+there is no second authorization model. `progress_shares` informs the join
+experience — "you're three episodes behind" before joining, and the handoff to
+Catch Me Up that the vision's connected journey describes.
 
-The INSERT policy requires `auth.uid() = sender_id` **and**
-`are_friends(sender_id, recipient_id)` — friendship enforced in the database,
-not assumed by the UI.
+Shape: `watch_sessions` (host, media, episode, playback state, position,
+`updated_at`) and `watch_session_participants`, with participant-only RLS.
 
-### 9.2 Per-show progress sharing
+Playback sync should ride Realtime **broadcast + presence** for the
+high-frequency events (play/pause/seek/heartbeat), with the Postgres row as
+durable state for late joiners and reconnects. Persisting every tick would
+hammer the database for no benefit.
 
-`progress_shares(owner_id, shared_with_user_id, media_id, media_type,
-created_at)` — **one row per (title, recipient)**, rather than an
-`audience: 'all_friends' | 'selected'` enum. "Share with all friends" becomes a
-UI fan-out. This gives per-person scoping from day one, matching the vision's
-"eventually chosen people" with no later migration, and keeps the RLS predicate
-a trivial equality check.
+**Blocked on two things outside this workstream:**
 
-The policy everything hinges on — an additional SELECT on `watch_progress`
-requiring three independent conditions: an explicit grant, for that specific
-title, between users who are *currently* friends. Re-checking friendship at read
-time means unfriending instantly revokes every share without a cleanup job.
+1. **Real playback.** `video-player.tsx` is unused and the app only plays
+   trailers. There is nothing to synchronize yet.
+2. **Session refresh.** `@supabase/auth-helpers-nextjs` has no session-refresh
+   strategy (§7.2). Long-lived sessions make that a real failure mode rather
+   than a latent one.
 
-Revocation ships in the same milestone as granting. Never after.
+### 9.2 Smaller follow-ups
 
-### 9.3 Watch Together
-
-`watch_sessions` (host, media, episode, playback state, position, `updated_at`)
-and `watch_session_participants`, participant-only RLS, invites gated by the
-same `are_friends()`.
-
-Playback sync should ride Realtime **broadcast + presence** for high-frequency
-events (play/pause/seek/heartbeat), with the Postgres row as durable state for
-late joiners and reconnects — persisting every tick would hammer the database
-for no benefit.
-
-Blocked on: real playback (`video-player.tsx` is currently unused and
-trailer-only) and the `@supabase/ssr` session-refresh migration.
+- **Blocking.** There is no way to block a user. Declining is silent and
+  requests are rate-limited, which covers ordinary nuisance, but not a
+  determined one. A `blocked_users` table checked inside `are_friends()` and
+  `search_users()` is the natural shape.
+- **Episode-level progress.** See §7.3 — needed before "how far is my friend"
+  can say "S2E6" instead of a percentage, and needed by the AI workstream for
+  its spoiler boundary. `FriendProgressStrip` is the component that changes.
+- **Removing the `as any` casts** in `use-my-list` and `use-liked-items`, now
+  that the `Relationships` fix (§7.1) makes the Database type conform.

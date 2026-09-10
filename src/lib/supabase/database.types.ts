@@ -223,6 +223,39 @@ export interface Database {
           },
         ];
       };
+      progress_shares: {
+        // A grant has no mutable fields: changing what is shared means
+        // deleting one row and inserting another, so there is no Update path.
+        Row: {
+          owner_id: string;
+          shared_with_user_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          created_at: string;
+        };
+        Insert: {
+          owner_id: string;
+          shared_with_user_id: string;
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          created_at?: string;
+        };
+        Update: never;
+        Relationships: [
+          {
+            foreignKeyName: 'progress_shares_owner_id_fkey';
+            columns: ['owner_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+          {
+            foreignKeyName: 'progress_shares_shared_with_user_id_fkey';
+            columns: ['shared_with_user_id'];
+            referencedRelation: 'profiles';
+            referencedColumns: ['id'];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
@@ -356,6 +389,51 @@ export interface Database {
           avatar_url: string | null;
           already_sent: boolean;
           recommendation_id: string | null;
+        }[];
+      };
+      share_progress: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv'; p_friend_id: string };
+        Returns: undefined;
+      };
+      revoke_progress_share: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv'; p_friend_id: string };
+        Returns: undefined;
+      };
+      revoke_all_progress_shares: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv' };
+        Returns: undefined;
+      };
+      list_share_targets: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv' };
+        Returns: {
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+          is_shared: boolean;
+        }[];
+      };
+      list_my_progress_shares: {
+        Args: Record<string, never>;
+        Returns: {
+          media_id: number;
+          media_type: 'movie' | 'tv';
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+          created_at: string;
+        }[];
+      };
+      list_friend_progress: {
+        Args: { p_media_id: number; p_media_type: 'movie' | 'tv' };
+        Returns: {
+          user_id: string;
+          username: string | null;
+          full_name: string | null;
+          avatar_url: string | null;
+          progress: number;
+          last_watched: string;
         }[];
       };
     };

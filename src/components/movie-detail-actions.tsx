@@ -7,6 +7,8 @@ import { useMyList } from '@/hooks/use-my-list';
 import { useLikedItems } from '@/hooks/use-liked-items';
 import { TrailerModal } from './trailer-modal';
 import { RecommendButton } from '@/components/social/recommend-button';
+import { ShareProgressControl } from '@/components/social/share-progress-control';
+import { FriendProgressStrip } from '@/components/social/friend-progress-strip';
 
 interface MovieDetailActionsProps {
   movieId: number;
@@ -79,7 +81,10 @@ export function MovieDetailActions({ movieId, movieTitle, trailerKey }: MovieDet
           <ThumbsUp className={`h-5 w-5 ${liked ? 'fill-current' : ''}`} />
         </button>
         <RecommendButton mediaId={movieId} mediaType="movie" title={movieTitle} />
+        <ShareProgressControl mediaId={movieId} mediaType="movie" title={movieTitle} />
       </div>
+
+      <FriendProgressStrip mediaId={movieId} mediaType="movie" />
 
       {/* Trailer Modal */}
       {showTrailer && trailerKey && (

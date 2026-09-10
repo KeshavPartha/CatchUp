@@ -68,6 +68,25 @@ export interface RecommendationTarget extends SocialProfile {
   recommendationId: string | null;
 }
 
+/** A friend in the "share this title with" control. */
+export interface ShareTarget extends SocialProfile {
+  isShared: boolean;
+}
+
+/** One active grant, as listed in the privacy centre. */
+export interface ProgressShare extends SocialProfile {
+  mediaId: number;
+  mediaType: MediaType;
+  createdAt: string;
+}
+
+/** A friend's progress on a title they have explicitly shared with you. */
+export interface FriendProgress extends SocialProfile {
+  /** Percentage, 0-100, matching the watch_progress CHECK constraint. */
+  progress: number;
+  lastWatched: string;
+}
+
 export interface UserSearchResult extends SocialProfile {
   relationship: Relationship;
   /** The pending request between the viewer and this user, when one exists. */

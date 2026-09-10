@@ -11,9 +11,10 @@ import { FriendCard } from '@/components/social/friend-card';
 import { FriendRequestCard } from '@/components/social/friend-request-card';
 import { AddFriendSearch } from '@/components/social/add-friend-search';
 import { RecommendationInbox } from '@/components/social/recommendation-inbox';
+import { PrivacyCentre } from '@/components/social/privacy-centre';
 import { useRecommendations } from '@/hooks/use-recommendations';
 
-type Tab = 'friends' | 'recommendations' | 'requests' | 'add';
+type Tab = 'friends' | 'recommendations' | 'requests' | 'sharing' | 'add';
 
 function FriendsSkeleton() {
   return (
@@ -103,6 +104,7 @@ export default function FriendsPage() {
     { id: 'friends', label: 'Friends', badge: friends.length || undefined },
     { id: 'recommendations', label: 'Recommended', badge: unseenCount || undefined },
     { id: 'requests', label: 'Requests', badge: pendingCount || undefined },
+    { id: 'sharing', label: 'Sharing' },
     { id: 'add', label: 'Add friend' },
   ];
 
@@ -235,6 +237,16 @@ export default function FriendsPage() {
                 </ul>
               </section>
             )}
+          </div>
+        )}
+
+        {tab === 'sharing' && (
+          <div>
+            <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold">
+              <ShieldCheck className="h-5 w-5" />
+              What you&rsquo;re sharing
+            </h2>
+            <PrivacyCentre />
           </div>
         )}
 
