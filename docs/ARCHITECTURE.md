@@ -21,14 +21,15 @@ The catalog adapter should expose list, search, detail, and image-path functions
 3. The player initializes from the user’s progress record.
 4. Playback updates local UI immediately and persists debounced episode or movie progress to Supabase.
 5. Continue Watching reads private progress, resolves the catalog item locally, and links directly to the episode player.
+6. `POST /api/recap` authenticates the bearer token, resolves the local show/target episode, retrieves the user’s safe completed-prior events, and sends only those events to the server-side recap provider.
 
 ## Authentication and authorization
 
-Supabase Auth is the identity boundary. Durable user data is accessed with the authenticated user context and protected by RLS. Route-level UX may redirect unauthenticated users, but database policies remain the security boundary.
+Supabase Auth is the identity boundary. The recap endpoint accepts the browser session’s access token as a bearer token, validates it with `auth.getUser`, and uses the same token on its progress query so RLS applies to the authenticated user. Durable user data is protected by RLS. Route-level UX may redirect unauthenticated users, but database policies remain the security boundary.
 
 ## Recap foundation
 
-`src/lib/recaps/types.ts` defines the stable plot-event, progress-reader, boundary, and retrieval result contracts. `demo-plot-events.ts` contains controlled narrative data for the full `Echoes of Orion` show. `spoiler-boundary.ts` computes the completed-prior-episode scope, and `retrieval.ts` filters events to that scope and provides an injected Supabase progress reader. Any future generation endpoint must pass only this filtered result to a model.
+`src/lib/recaps/types.ts` defines the stable plot-event, progress-reader, boundary, and retrieval result contracts. `demo-plot-events.ts` contains controlled narrative data for the full `Echoes of Orion` show. `spoiler-boundary.ts` computes the completed-prior-episode scope, and `retrieval.ts` filters events to that scope and provides an injected Supabase progress reader. `generator.ts` hides the provider choice behind `RecapGenerator`, while `endpoint.ts` coordinates authentication, catalog validation, retrieval, and generation. The route passes only filtered events to the provider.
 
 ## Future extension points
 
@@ -36,4 +37,4 @@ Episode plot events attach to stable show, season, and episode IDs and carry ord
 
 ## Non-goals
 
-No provider migration, recommendation engine, AI orchestration, social feed, realtime session implementation, or commercial media delivery is part of the foundation checkpoint.
+No follow-up Q&A, polished Catch Me Up UI, recommendation engine, social feed, realtime session implementation, or commercial media delivery is part of this checkpoint.

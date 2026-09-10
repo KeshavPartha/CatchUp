@@ -2,7 +2,7 @@
 
 ## Scope
 
-CatchUp is a Next.js streaming-platform prototype. The current foundation uses a fully controlled local catalog, an interactive demo player, and a deterministic spoiler-safe narrative retrieval foundation. AI generation/UI, follow-up Q&A, friends, recommendations, progress sharing, and Watch Together remain unimplemented.
+CatchUp is a Next.js streaming-platform prototype. The current foundation uses a fully controlled local catalog, an interactive demo player, deterministic spoiler-safe narrative retrieval, and a server-side recap generation endpoint. Catch Me Up UI, follow-up Q&A, friends, recommendations, progress sharing, and Watch Together remain unimplemented.
 
 ## Tech stack
 
@@ -19,7 +19,7 @@ src/components/          Shared shell, rows/cards, actions, and reusable demo pl
 src/hooks/               My List, likes, Continue Watching, and episode progress hooks
 src/lib/catalog.ts       Controlled local catalog and catalog adapter functions
 src/lib/supabase/        Supabase browser client, config guard, and database types
-src/lib/recaps/          Plot-event data, episode boundary logic, and safe retrieval contracts
+src/lib/recaps/          Plot events, boundary/retrieval logic, provider abstraction, and recap endpoint coordination
 public/demo/             Locally controlled poster/backdrop SVG artwork
 supabase-schema.sql      Current/future-ready Supabase schema and RLS policies
 docs/                    Product, architecture, database, AI, social, and party specs
@@ -58,7 +58,7 @@ The browser uses a singleton `@supabase/supabase-js` client from `src/lib/supaba
 - Login, profile editing, and sign-out use Supabase Auth.
 - My List and likes use Supabase for signed-in users and localStorage for anonymous users.
 - Watch progress is private Supabase data; there is no localStorage fallback for it.
-- RLS is the database security boundary. There is no middleware or server-side route protection yet.
+- RLS is the database security boundary. The recap endpoint validates a Supabase bearer token server-side before reading progress; other routes remain client-side.
 
 The deprecated `@supabase/auth-helpers-nextjs` dependency and unused server helper were removed. A server-side auth/session boundary can be added later with `@supabase/ssr` when server-protected features require it.
 
@@ -67,6 +67,8 @@ The deprecated `@supabase/auth-helpers-nextjs` dependency and unused server help
 The current schema includes `profiles`, `my_list`, `liked_items`, and the expanded `watch_progress` table. `watch_progress` stores one row per user and episode, or per user and movie, with stable content IDs, current season/episode numbers where applicable, position, duration, percentage, completion, and timestamps.
 
 The schema also creates future-ready, RLS-enabled tables for `episode_plot_events`, `friendships`, `show_recommendations`, `progress_shares`, `watch_parties`, `watch_party_members`, and `watch_party_events`. `episode_plot_events` now has show/season/episode metadata, event text, involved characters, importance, and tags; legacy narrative columns remain nullable for compatibility. Future tables intentionally have no permissive client policies until their features are implemented.
+
+The server-side recap endpoint currently uses the local `Echoes of Orion` events as its controlled source. It does not expose plot-event rows to the client or add client policies for the server-managed table.
 
 ## Watch progress and Continue Watching
 
@@ -109,9 +111,11 @@ The controlled catalog needs no external content account. For accounts and durab
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_project_url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
+CATCHUP_RECAP_PROVIDER=openai
+OPENAI_MODEL=gpt-4o-mini
 ```
 
-Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the hosted project was initialized from the original starter SQL, run `supabase/migrations/20260910_watch_progress_foundation.sql` to add or upgrade `watch_progress` without rebuilding unrelated tables. Configure the local/deployed auth URLs. No service-role key is needed by the current code.
+For generated recaps, add the server-only `OPENAI_API_KEY` to `.env.local` or the deployment environment. Never use a `NEXT_PUBLIC_` prefix for it. Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the hosted project was initialized from the original starter SQL, run `supabase/migrations/20260910_watch_progress_foundation.sql` to add or upgrade `watch_progress` without rebuilding unrelated tables. Configure the local/deployed auth URLs. No service-role key is needed by the current code.
 
 ## Technical risks
 
@@ -129,5 +133,5 @@ Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the h
 1. Apply the schema with a test Supabase project and verify signup, episode progress, reload/resume, completion, and Continue Watching with two users.
 2. Add automated tests for progress clamping, debouncing/flush behavior, episode resolution, completion, and RLS isolation.
 3. Decide whether the catalog remains code-controlled for the prototype or moves to managed content tables.
-4. Add the server-side Catch Me Up generation boundary that accepts only the output of `src/lib/recaps/retrieval.ts`, then implement recap/Q&A UI.
+4. Add recap UI that calls the server-side generation endpoint and displays its boundary-aware response.
 5. Implement explicit per-show progress sharing and friends only after private progress semantics are stable.

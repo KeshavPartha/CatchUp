@@ -28,6 +28,15 @@ Remaining foundation work:
 
 **Owner:** Keshav
 
+**Status:** Narrative retrieval and server-side recap generation foundation complete; recap UI, provider configuration, and Q&A remain.
+
+Completed in this phase so far:
+
+- Structured episode plot-event data
+- Episode-based spoiler-boundary logic
+- Retrieval pipeline that only returns completed prior-episode information
+- Server-side recap endpoint and provider abstraction
+
 Build:
 
 - Structured episode plot-event data
