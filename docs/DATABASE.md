@@ -12,7 +12,7 @@ One row per Supabase Auth user. Stores email, display name, avatar URL, and time
 
 ### `watch_progress`
 
-One row per user and episode, unique on `(user_id, episode_id)`. Stores `show_id`, `season_id`, `episode_id`, current season/episode numbers, `position_seconds`, `duration_seconds`, `progress_percent`, `completed`, and `last_watched_at`. Movie progress may use `media_type = 'movie'` with a stable `media_id`.
+One row per user and episode, unique on `(user_id, episode_id)`, or per user and movie, unique on `(user_id, media_type, media_id)`. Stores `show_id`, `season_id`, `episode_id`, current season/episode numbers where applicable, `position_seconds`, `duration_seconds`, `progress_percent`, `completed`, and `last_watched_at`. Movie rows use `media_type = 'movie'` with a stable `media_id`.
 
 ### Existing foundation tables
 
@@ -36,7 +36,7 @@ One row per user and episode, unique on `(user_id, episode_id)`. Stores `show_id
 
 ## Write behavior
 
-The player sends idempotent upserts for an episode. Progress updates are clamped to valid ranges, debounced, and flushed on pause, completion, and page exit where possible. Completion is explicit in storage and should be monotonic unless a future product action deliberately reopens an episode.
+The player sends idempotent upserts for an episode or movie. Progress updates are clamped to valid ranges, debounced, and flushed on pause, completion, and page exit where possible. Completion is explicit in storage and should be monotonic unless a future product action deliberately reopens an item.
 
 ## Migration posture
 

@@ -68,6 +68,9 @@ ALTER TABLE public.watch_progress DROP CONSTRAINT IF EXISTS watch_progress_user_
 CREATE UNIQUE INDEX IF NOT EXISTS watch_progress_user_episode_key
   ON public.watch_progress(user_id, episode_id);
 
+CREATE UNIQUE INDEX IF NOT EXISTS watch_progress_user_movie_key
+  ON public.watch_progress(user_id, media_type, media_id);
+
 -- Future AI source data. Rows are server-managed; no client policy is granted here.
 CREATE TABLE IF NOT EXISTS public.episode_plot_events (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,

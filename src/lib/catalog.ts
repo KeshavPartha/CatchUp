@@ -9,6 +9,7 @@ export interface Movie {
   backdrop_path: string;
   release_date: string;
   vote_average: number;
+  runtime: number;
 }
 
 export interface Episode {
@@ -167,6 +168,7 @@ const movies: MovieDetails[] = [
     backdrop_path: '/demo/lanterns-at-low-tide-backdrop.svg',
     release_date: '2025-01-17',
     vote_average: 7.9,
+    runtime: 112,
     genres: ['Adventure', 'Drama'],
     cast: ['Nia Cole', 'Evan Holt'],
   },
@@ -179,6 +181,7 @@ const movies: MovieDetails[] = [
     backdrop_path: '/demo/mosaic-city-backdrop.svg',
     release_date: '2024-06-21',
     vote_average: 8.1,
+    runtime: 106,
     genres: ['Drama', 'Thriller'],
     cast: ['Rhea Moss', 'Cal Dune'],
   },

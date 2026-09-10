@@ -10,7 +10,7 @@
 
 ## Content model
 
-Stable application IDs identify shows, seasons, episodes, and movies. A show contains ordered seasons; a season contains ordered episodes. Episode progress is keyed by user plus episode, while the current episode for a show is derived from the most recently watched record.
+Stable application IDs identify shows, seasons, episodes, and movies. A show contains ordered seasons; a season contains ordered episodes. Episode progress is keyed by user plus episode, while movie progress is keyed by user, media type, and movie ID. The current episode for a show is derived from the most recently watched incomplete record.
 
 The catalog adapter should expose list, search, detail, and image-path functions so UI components do not depend on a provider-specific schema.
 
@@ -19,7 +19,7 @@ The catalog adapter should expose list, search, detail, and image-path functions
 1. A route reads catalog data through the local catalog module.
 2. A page renders reusable rows/cards or an episode detail/player screen.
 3. The player initializes from the user’s progress record.
-4. Playback updates local UI immediately and persists debounced progress to Supabase.
+4. Playback updates local UI immediately and persists debounced episode or movie progress to Supabase.
 5. Continue Watching reads private progress, resolves the catalog item locally, and links directly to the episode player.
 
 ## Authentication and authorization

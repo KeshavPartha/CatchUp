@@ -49,7 +49,7 @@ export default async function MoviePage({ params }: MoviePageProps) {
                   <span>{movie.release_date.slice(0, 4)}</span>
                   <span className="text-netflix-lightGray">{movie.genres.join(', ')}</span>
                 </div>
-                <MovieDetailActions movieId={movieId} />
+                <MovieDetailActions movie={movie} />
               </div>
             </div>
           </div>

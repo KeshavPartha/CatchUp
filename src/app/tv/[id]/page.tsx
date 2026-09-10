@@ -21,7 +21,7 @@ export default async function TVShowPage({ params }: TVShowPageProps) {
     notFound();
   }
   const similarShows = await getPopularTVShows();
-  const firstEpisodeId = show.seasons[0]?.episodes[0]?.id;
+  const episodes = show.seasons.flatMap((season) => season.episodes);
 
   return (
     <main className="min-h-screen">
@@ -52,7 +52,7 @@ export default async function TVShowPage({ params }: TVShowPageProps) {
                   <span>{show.seasons.length} Season{show.seasons.length !== 1 ? 's' : ''}</span>
                   <span className="text-netflix-lightGray">{show.genres.join(', ')}</span>
                 </div>
-                <TVShowDetailActions showId={showId} firstEpisodeId={firstEpisodeId} />
+                <TVShowDetailActions showId={showId} episodes={episodes} />
               </div>
             </div>
           </div>
@@ -83,13 +83,18 @@ export default async function TVShowPage({ params }: TVShowPageProps) {
                       <Link
                         key={episode.id}
                         href={`/tv/${show.id}/episode/${episode.id}`}
-                        className="rounded-lg border border-netflix-gray bg-netflix-gray/20 p-4 transition-colors hover:bg-netflix-gray/50"
+                        aria-label={`Play ${episode.name}`}
+                        className="group rounded-lg border border-netflix-gray bg-netflix-gray/20 p-4 transition-colors hover:bg-netflix-gray/50"
                       >
                         <p className="text-xs text-netflix-lightGray">
                           E{episode.episode_number} · {episode.runtime} min
                         </p>
                         <h4 className="mt-1 font-semibold">{episode.name}</h4>
                         <p className="mt-2 line-clamp-2 text-sm text-netflix-lightGray">{episode.overview}</p>
+                        <span className="mt-4 inline-flex items-center gap-2 rounded bg-white px-3 py-1.5 text-sm font-semibold text-black transition-colors group-hover:bg-netflix-red group-hover:text-white">
+                          <span aria-hidden="true">▶</span>
+                          Play
+                        </span>
                       </Link>
                     ))}
                   </div>

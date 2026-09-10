@@ -1,18 +1,21 @@
 'use client';
 
 import Link from 'next/link';
-import { Play, Plus, ThumbsUp, Check } from 'lucide-react';
+import { Plus, ThumbsUp, Check } from 'lucide-react';
+import { Episode } from '@/lib/catalog';
 import { useMyList } from '@/hooks/use-my-list';
 import { useLikedItems } from '@/hooks/use-liked-items';
+import { useShowPlaybackTarget } from '@/hooks/use-show-playback-target';
 
 interface TVShowDetailActionsProps {
   showId: number;
-  firstEpisodeId?: string;
+  episodes: Episode[];
 }
 
-export function TVShowDetailActions({ showId, firstEpisodeId }: TVShowDetailActionsProps) {
+export function TVShowDetailActions({ showId, episodes }: TVShowDetailActionsProps) {
   const { myList, addToList, removeFromList } = useMyList();
   const { isLiked, toggleLike } = useLikedItems();
+  const { targetEpisode, isResume } = useShowPlaybackTarget(showId, episodes);
   const isInList = myList.some((item) => item.media_id === showId && item.media_type === 'tv');
   const liked = isLiked(showId, 'tv');
 
@@ -26,13 +29,13 @@ export function TVShowDetailActions({ showId, firstEpisodeId }: TVShowDetailActi
 
   return (
     <div className="flex flex-wrap gap-3">
-      {firstEpisodeId && (
+      {targetEpisode && (
         <Link
-          href={`/tv/${showId}/episode/${firstEpisodeId}`}
+          href={`/tv/${showId}/episode/${targetEpisode.id}`}
           className="flex items-center gap-2 rounded bg-white px-6 py-2 text-lg font-semibold text-black transition-colors hover:bg-white/90"
         >
-          <Play className="h-5 w-5 fill-current" />
-          Start Watching
+          <span aria-hidden="true">▶</span>
+          {isResume ? 'Resume' : 'Play'}
         </Link>
       )}
       <button

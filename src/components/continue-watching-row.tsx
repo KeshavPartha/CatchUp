@@ -4,13 +4,12 @@ import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { Play, X } from 'lucide-react';
-import { getEpisodeById, getTVShowDetails, Episode, TVShowDetails, getPosterUrl } from '@/lib/catalog';
+import { getEpisodeById, getMovieDetails, getTVShowDetails, Episode, MovieDetails, TVShowDetails, getPosterUrl } from '@/lib/catalog';
 import { ContinueWatchingItem, useContinueWatching } from '@/hooks/use-continue-watching';
 
-interface ResolvedContinueItem extends ContinueWatchingItem {
-  episode: Episode;
-  show: TVShowDetails;
-}
+type ResolvedContinueItem =
+  | (ContinueWatchingItem & { media_type: 'tv'; episode: Episode; show: TVShowDetails })
+  | (ContinueWatchingItem & { media_type: 'movie'; movie: MovieDetails });
 
 export function ContinueWatchingRow() {
   const { watchList, loading, removeFromWatching, isAuthenticated } = useContinueWatching();
@@ -28,8 +27,12 @@ export function ContinueWatchingRow() {
       setLoadingItems(true);
       const resolved = await Promise.all(
         watchList.map(async (item) => {
-          if (!item.episode_id || !item.show_id) return null;
           try {
+            if (item.media_type === 'movie' && item.media_id !== null) {
+              const movie = await getMovieDetails(item.media_id);
+              return { ...item, movie };
+            }
+            if (!item.episode_id || !item.show_id) return null;
             const [episode, show] = await Promise.all([
               getEpisodeById(item.episode_id),
               getTVShowDetails(Number(item.show_id)),
@@ -59,10 +62,10 @@ export function ContinueWatchingRow() {
       <h2 className="px-4 text-lg font-semibold md:px-8 md:text-xl lg:text-2xl">Continue Watching</h2>
       <div className="flex gap-2 overflow-x-scroll px-4 scrollbar-hide md:gap-3 md:px-8">
         {items.map((item) => (
-          <div key={item.episode_id} className="w-56 flex-shrink-0 md:w-72">
+          <div key={item.id} className="w-56 flex-shrink-0 md:w-72">
             <ContinueWatchingCard
               item={item}
-              onRemove={() => removeFromWatching(item.episode_id ?? '')}
+              onRemove={() => removeFromWatching(item)}
             />
           </div>
         ))}
@@ -72,15 +75,20 @@ export function ContinueWatchingRow() {
 }
 
 function ContinueWatchingCard({ item, onRemove }: { item: ResolvedContinueItem; onRemove: () => void }) {
-  const { episode, show, progress_percent: progress } = item;
+  const { progress_percent: progress } = item;
+  const isMovie = item.media_type === 'movie';
+  const title = isMovie ? item.movie.title : item.show.name;
+  const subtitle = isMovie ? 'Movie' : `S${item.episode.season_number} E${item.episode.episode_number} · ${item.episode.name}`;
+  const image = isMovie ? getPosterUrl(item.movie.backdrop_path) : item.episode.still_path || getPosterUrl(item.show.poster_path);
+  const href = isMovie ? `/movie/${item.movie.id}/play` : `/tv/${item.show.id}/episode/${item.episode.id}`;
 
   return (
     <div className="group relative overflow-hidden rounded-md bg-netflix-gray">
-      <Link href={`/tv/${show.id}/episode/${episode.id}`} className="block">
+      <Link href={href} className="block">
         <div className="relative aspect-video">
           <Image
-            src={episode.still_path || getPosterUrl(show.poster_path)}
-            alt={`${show.name} - ${episode.name}`}
+            src={image}
+            alt={`${title} - ${subtitle}`}
             fill
             className="object-cover"
           />
@@ -91,10 +99,8 @@ function ContinueWatchingCard({ item, onRemove }: { item: ResolvedContinueItem; 
           </div>
         </div>
         <div className="space-y-1 p-3">
-          <p className="truncate font-semibold">{show.name}</p>
-          <p className="truncate text-sm text-netflix-lightGray">
-            S{episode.season_number} E{episode.episode_number} · {episode.name}
-          </p>
+          <p className="truncate font-semibold">{title}</p>
+          <p className="truncate text-sm text-netflix-lightGray">{subtitle}</p>
           <div className="h-1 w-full overflow-hidden rounded bg-netflix-darkGray">
             <div className="h-full bg-netflix-red" style={{ width: `${progress}%` }} />
           </div>
@@ -103,7 +109,7 @@ function ContinueWatchingCard({ item, onRemove }: { item: ResolvedContinueItem; 
       </Link>
       <button
         onClick={onRemove}
-        aria-label={`Remove ${episode.name} from Continue Watching`}
+        aria-label={`Remove ${title} from Continue Watching`}
         className="absolute right-2 top-2 rounded-full bg-black/70 p-1.5 opacity-0 transition-opacity group-hover:opacity-100"
       >
         <X className="h-4 w-4" />

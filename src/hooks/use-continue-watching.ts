@@ -59,15 +59,25 @@ export function useContinueWatching() {
     };
   }, [fetchWatchProgress]);
 
-  const removeFromWatching = useCallback(async (episodeId: string) => {
+  const removeFromWatching = useCallback(async (item: ContinueWatchingItem) => {
     if (!userId) return;
     const supabase = createClient();
-    const { error } = await supabase
+    let query = supabase
       .from('watch_progress')
       .delete()
       .eq('user_id', userId)
-      .eq('episode_id', episodeId);
-    if (!error) setWatchList((current) => current.filter((item) => item.episode_id !== episodeId));
+      .eq('media_type', item.media_type);
+
+    if (item.media_type === 'movie' && item.media_id !== null) {
+      query = query.eq('media_id', item.media_id);
+    } else if (item.episode_id) {
+      query = query.eq('episode_id', item.episode_id);
+    } else {
+      return;
+    }
+
+    const { error } = await query;
+    if (!error) setWatchList((current) => current.filter((currentItem) => currentItem.id !== item.id));
   }, [userId]);
 
   return {
