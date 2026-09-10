@@ -41,6 +41,10 @@ export function DemoPlayer({ media, title, subtitle, artwork }: DemoPlayerProps)
   }, [loading, progress]);
 
   useEffect(() => {
+    initialized.current = false;
+  }, [media.id, isAuthenticated]);
+
+  useEffect(() => {
     positionRef.current = position;
   }, [position]);
 

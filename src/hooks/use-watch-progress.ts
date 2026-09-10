@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Episode, Movie } from '@/lib/catalog';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
@@ -9,23 +9,49 @@ import { logSupabaseError } from '@/lib/supabase/logging';
 
 type WatchProgress = Database['public']['Tables']['watch_progress']['Row'];
 type WatchProgressInsert = Database['public']['Tables']['watch_progress']['Insert'];
+type Watchable = Episode | Movie;
+
+const PROGRESS_INIT_TIMEOUT_MS = 10000;
 
 const toProgressPercent = (positionSeconds: number, durationSeconds: number) => {
   if (durationSeconds <= 0) return 0;
   return Math.min(100, Math.max(0, Math.round((positionSeconds / durationSeconds) * 100)));
 };
 
-type Watchable = Episode | Movie;
-
 const isEpisode = (media: Watchable): media is Episode => 'episode_number' in media;
 
+const withTimeout = async <T,>(promise: PromiseLike<T>, message: string): Promise<T> => {
+  let timeout: ReturnType<typeof setTimeout> | undefined;
+  const timeoutPromise = new Promise<never>((_, reject) => {
+    timeout = setTimeout(() => reject(new Error(message)), PROGRESS_INIT_TIMEOUT_MS);
+  });
+
+  try {
+    return await Promise.race([Promise.resolve(promise), timeoutPromise]);
+  } finally {
+    if (timeout) clearTimeout(timeout);
+  }
+};
+
 export function useWatchProgress(media: Watchable) {
+  const episodeMedia = isEpisode(media) ? media : null;
+  const mediaType = episodeMedia ? 'tv' : 'movie';
+  const contentId = media.id;
   const durationSeconds = media.runtime * 60;
+  const movieId: number | null = isEpisode(media) ? null : media.id;
+  const showId = episodeMedia ? String(episodeMedia.show_id) : null;
+  const seasonId = episodeMedia ? episodeMedia.season_id : null;
+  const episodeId = episodeMedia ? episodeMedia.id : null;
+  const seasonNumber = episodeMedia ? episodeMedia.season_number : null;
+  const episodeNumber = episodeMedia ? episodeMedia.episode_number : null;
+
   const [progress, setProgress] = useState<WatchProgress | null>(null);
   const [loading, setLoading] = useState(true);
   const [userId, setUserId] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const pendingTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const logContext = useMemo(() => ({ mediaType, mediaId: String(contentId) }), [contentId, mediaType]);
 
   const fetchProgress = useCallback(async (uid: string) => {
     try {
@@ -34,17 +60,14 @@ export function useWatchProgress(media: Watchable) {
         .from('watch_progress')
         .select('*')
         .eq('user_id', uid)
-        .eq('media_type', isEpisode(media) ? 'tv' : 'movie')
+        .eq('media_type', mediaType)
         .limit(1);
-      query = isEpisode(media) ? query.eq('episode_id', media.id) : query.eq('media_id', media.id);
-      const { data, error } = await query.maybeSingle();
+      query = movieId === null ? query.eq('episode_id', String(contentId)) : query.eq('media_id', movieId);
+      const { data, error } = await withTimeout(query.maybeSingle(), 'Timed out while loading saved progress.');
 
       if (error) {
-        logSupabaseError('watch-progress', 'read', error, {
-          userId: uid,
-          mediaType: isEpisode(media) ? 'tv' : 'movie',
-          mediaId: String(media.id),
-        });
+        logSupabaseError('watch-progress', 'read', error, { ...logContext, userId: uid });
+        setProgress(null);
         setSaveError('Progress could not be loaded from Supabase.');
         return;
       }
@@ -52,17 +75,17 @@ export function useWatchProgress(media: Watchable) {
       setSaveError(null);
       setProgress(data ?? null);
     } catch (error) {
-      logSupabaseError('watch-progress', 'read', error, {
-        userId: uid,
-        mediaType: isEpisode(media) ? 'tv' : 'movie',
-        mediaId: String(media.id),
-      });
+      logSupabaseError('watch-progress', 'read', error, { ...logContext, userId: uid });
+      setProgress(null);
       setSaveError('Progress could not be loaded from Supabase.');
     }
-  }, [media]);
+  }, [contentId, logContext, mediaType, movieId]);
 
   useEffect(() => {
     let mounted = true;
+    setLoading(true);
+    setProgress(null);
+    setSaveError(null);
 
     if (!isSupabaseConfigured) {
       setLoading(false);
@@ -74,47 +97,62 @@ export function useWatchProgress(media: Watchable) {
     const supabase = createClient();
     const initialize = async () => {
       try {
-        const { data: { user }, error } = await supabase.auth.getUser();
+        const { data: { user }, error } = await withTimeout(
+          supabase.auth.getUser(),
+          'Timed out while checking the authenticated session.'
+        );
         if (error) {
-          logSupabaseError('watch-progress', 'get authenticated user', error, {});
+          logSupabaseError('watch-progress', 'get authenticated user', error, logContext);
+          if (mounted) setSaveError('Authentication could not be verified.');
           return;
         }
         if (!mounted) return;
         setUserId(user?.id ?? null);
-        if (user) await fetchProgress(user.id);
+        if (user) {
+          await fetchProgress(user.id);
+        }
       } catch (error) {
-        logSupabaseError('watch-progress', 'initialize', error, {});
+        logSupabaseError('watch-progress', 'initialize', error, logContext);
+        if (mounted) setSaveError('Progress initialization timed out. You can retry by refreshing the page.');
       } finally {
         if (mounted) setLoading(false);
       }
     };
 
     void initialize();
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    // Do not await Supabase queries inside this callback. Auth listeners can
+    // hold Supabase's auth lock while they run, which can deadlock a nested
+    // watch_progress request and leave initialization loading forever.
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!mounted) return;
       const uid = session?.user?.id ?? null;
       setUserId(uid);
-      try {
-        if (uid) await fetchProgress(uid);
-        else {
-          setProgress(null);
-          setSaveError(null);
-        }
-      } catch (error) {
-        logSupabaseError('watch-progress', 'auth state change', error, { userId: uid });
+      if (!uid) {
+        setProgress(null);
+        setSaveError(null);
+        setLoading(false);
+        return;
       }
+
+      setLoading(true);
+      setTimeout(() => {
+        if (!mounted) return;
+        void fetchProgress(uid).finally(() => {
+          if (mounted) setLoading(false);
+        });
+      }, 0);
     });
 
     return () => {
       mounted = false;
       subscription.unsubscribe();
     };
-  }, [fetchProgress]);
+  }, [fetchProgress, logContext]);
 
   const persistProgress = useCallback(async (positionSeconds: number, completed: boolean) => {
     if (!userId) {
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('[watch-progress] write skipped because no authenticated user is available');
+        console.warn('[watch-progress] write skipped because no authenticated user is available', logContext);
       }
       return;
     }
@@ -122,13 +160,13 @@ export function useWatchProgress(media: Watchable) {
     const safePosition = Math.min(durationSeconds, Math.max(0, Math.round(positionSeconds)));
     const payload: WatchProgressInsert = {
       user_id: userId,
-      media_type: isEpisode(media) ? 'tv' : 'movie',
-      media_id: isEpisode(media) ? null : media.id,
-      show_id: isEpisode(media) ? String(media.show_id) : null,
-      season_id: isEpisode(media) ? media.season_id : null,
-      episode_id: isEpisode(media) ? media.id : null,
-      current_season_number: isEpisode(media) ? media.season_number : null,
-      current_episode_number: isEpisode(media) ? media.episode_number : null,
+      media_type: mediaType,
+      media_id: movieId,
+      show_id: showId,
+      season_id: seasonId,
+      episode_id: episodeId,
+      current_season_number: seasonNumber,
+      current_episode_number: episodeNumber,
       position_seconds: safePosition,
       duration_seconds: durationSeconds,
       progress_percent: toProgressPercent(safePosition, durationSeconds),
@@ -140,15 +178,14 @@ export function useWatchProgress(media: Watchable) {
       const supabase = createClient();
       const { data, error } = await supabase
         .from('watch_progress')
-        .upsert(payload, { onConflict: isEpisode(media) ? 'user_id,episode_id' : 'user_id,media_type,media_id' })
+        .upsert(payload, { onConflict: mediaType === 'tv' ? 'user_id,episode_id' : 'user_id,media_type,media_id' })
         .select()
         .single();
 
       if (error) {
         logSupabaseError('watch-progress', 'write', error, {
+          ...logContext,
           userId,
-          mediaType: payload.media_type,
-          mediaId: String(media.id),
           positionSeconds: safePosition,
           completed: payload.completed,
         });
@@ -160,28 +197,27 @@ export function useWatchProgress(media: Watchable) {
       if (data) setProgress(data);
     } catch (error) {
       logSupabaseError('watch-progress', 'write', error, {
+        ...logContext,
         userId,
-        mediaType: payload.media_type,
-        mediaId: String(media.id),
         positionSeconds: safePosition,
         completed: payload.completed,
       });
       setSaveError('Progress could not be saved to Supabase.');
     }
-  }, [durationSeconds, media, userId]);
+  }, [durationSeconds, episodeId, episodeNumber, logContext, mediaType, movieId, seasonId, seasonNumber, showId, userId]);
 
   const updatePosition = useCallback((positionSeconds: number, completed = false) => {
     const safePosition = Math.min(durationSeconds, Math.max(0, Math.round(positionSeconds)));
     setProgress((current) => ({
-      id: current?.id ?? `local-${media.id}`,
+      id: current?.id ?? `local-${contentId}`,
       user_id: current?.user_id ?? userId ?? '',
-      media_type: isEpisode(media) ? 'tv' : 'movie',
-      media_id: isEpisode(media) ? null : media.id,
-      show_id: isEpisode(media) ? String(media.show_id) : null,
-      season_id: isEpisode(media) ? media.season_id : null,
-      episode_id: isEpisode(media) ? media.id : null,
-      current_season_number: isEpisode(media) ? media.season_number : null,
-      current_episode_number: isEpisode(media) ? media.episode_number : null,
+      media_type: mediaType,
+      media_id: movieId,
+      show_id: showId,
+      season_id: seasonId,
+      episode_id: episodeId,
+      current_season_number: seasonNumber,
+      current_episode_number: episodeNumber,
       position_seconds: safePosition,
       duration_seconds: durationSeconds,
       progress_percent: toProgressPercent(safePosition, durationSeconds),
@@ -196,7 +232,7 @@ export function useWatchProgress(media: Watchable) {
     pendingTimer.current = setTimeout(() => {
       void persistProgress(safePosition, completed);
     }, 1200);
-  }, [durationSeconds, media, persistProgress, userId]);
+  }, [contentId, durationSeconds, episodeId, episodeNumber, mediaType, movieId, persistProgress, seasonId, seasonNumber, showId, userId]);
 
   const flush = useCallback(async (positionSeconds?: number, completed?: boolean) => {
     if (pendingTimer.current) clearTimeout(pendingTimer.current);
