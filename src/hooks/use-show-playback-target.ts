@@ -5,6 +5,7 @@ import { Episode } from '@/lib/catalog';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { Database } from '@/lib/supabase/database.types';
+import { logSupabaseError } from '@/lib/supabase/logging';
 
 type WatchProgress = Database['public']['Tables']['watch_progress']['Row'];
 
@@ -20,7 +21,12 @@ export function useShowPlaybackTarget(showId: number, episodes: Episode[]) {
       .eq('user_id', userId)
       .eq('show_id', String(showId));
 
-    if (!error) setProgressRows(data ?? []);
+    if (error) {
+      logSupabaseError('show-playback-target', 'read', error, { userId, showId });
+      return;
+    }
+
+    setProgressRows(data ?? []);
   }, [showId]);
 
   useEffect(() => {

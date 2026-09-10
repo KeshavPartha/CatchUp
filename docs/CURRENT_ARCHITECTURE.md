@@ -110,13 +110,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 ```
 
-Run `supabase-schema.sql` in the Supabase SQL editor and configure the local/deployed auth URLs. No service-role key is needed by the current code.
+Run `supabase-schema.sql` in the Supabase SQL editor for a new project. If the hosted project was initialized from the original starter SQL, run `supabase/migrations/20260910_watch_progress_foundation.sql` to add or upgrade `watch_progress` without rebuilding unrelated tables. Configure the local/deployed auth URLs. No service-role key is needed by the current code.
 
 ## Technical risks
 
 - The demo player is not a real media pipeline; a licensed/content-delivery decision is still required for production-like playback.
 - Auth is client-side and lacks middleware/session refresh. RLS protects data, but route UX is not yet server-enforced.
-- The browser progress hook depends on the schema being applied exactly, including the `(user_id, episode_id)` unique index.
+- The browser progress hook depends on the schema being applied exactly, including the `(user_id, episode_id)` and `(user_id, media_type, media_id)` unique indexes.
 - Progress writes are debounced and flushed on lifecycle events, but offline queueing and conflict resolution are not implemented.
 - My List and likes still create hook instances per card, which may multiply auth listeners on large catalogs.
 - The current dependency tree reports npm audit findings, stale Browserslist data, and an `@next/swc` mismatch warning.

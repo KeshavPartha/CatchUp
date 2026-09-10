@@ -20,7 +20,7 @@ const formatTime = (seconds: number) => {
 
 export function DemoPlayer({ media, title, subtitle, artwork }: DemoPlayerProps) {
   const durationSeconds = media.runtime * 60;
-  const { progress, loading, isAuthenticated, updatePosition, flush } = useWatchProgress(media);
+  const { progress, loading, isAuthenticated, saveError, updatePosition, flush } = useWatchProgress(media);
   const [position, setPosition] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
   const initialized = useRef(false);
@@ -108,31 +108,36 @@ export function DemoPlayer({ media, title, subtitle, artwork }: DemoPlayerProps)
           min={0}
           max={durationSeconds}
           value={position}
+          disabled={loading}
           onChange={(event) => setPlaybackPosition(Number(event.target.value))}
           className="w-full accent-netflix-red"
         />
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <button onClick={() => setPlaybackPosition(position - 10)} aria-label="Back 10 seconds" className="rounded p-2 hover:bg-white/10">
+            <button disabled={loading} onClick={() => setPlaybackPosition(position - 10)} aria-label="Back 10 seconds" className="rounded p-2 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
               <RotateCcw className="h-5 w-5" />
             </button>
-            <button onClick={togglePlayback} aria-label={isPlaying ? 'Pause playback' : 'Play playback'} className="rounded-full bg-white p-3 text-black hover:bg-white/80">
+            <button disabled={loading} onClick={togglePlayback} aria-label={isPlaying ? 'Pause playback' : 'Play playback'} className="rounded-full bg-white p-3 text-black hover:bg-white/80 disabled:cursor-not-allowed disabled:opacity-50">
               {isPlaying ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current" />}
             </button>
-            <button onClick={() => setPlaybackPosition(position + 10)} aria-label="Forward 10 seconds" className="rounded p-2 hover:bg-white/10">
+            <button disabled={loading} onClick={() => setPlaybackPosition(position + 10)} aria-label="Forward 10 seconds" className="rounded p-2 hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50">
               <RotateCw className="h-5 w-5" />
             </button>
             <span className="ml-2 text-sm text-netflix-lightGray">
               {formatTime(position)} / {formatTime(durationSeconds)}
             </span>
           </div>
-          <button onClick={markComplete} className="flex items-center gap-2 rounded bg-netflix-red px-4 py-2 text-sm font-semibold hover:bg-netflix-red/80">
+          <button disabled={loading} onClick={markComplete} className="flex items-center gap-2 rounded bg-netflix-red px-4 py-2 text-sm font-semibold hover:bg-netflix-red/80 disabled:cursor-not-allowed disabled:opacity-50">
             <Check className="h-4 w-4" />
             Mark watched
           </button>
         </div>
         <p className="text-sm text-netflix-lightGray">
-          {isAuthenticated
+          {loading
+            ? 'Loading your saved progress...'
+            : saveError
+            ? `${saveError} Check the browser console for details.`
+            : isAuthenticated
             ? 'Your progress saves automatically to Supabase while you watch.'
             : 'Sign in and configure Supabase to save progress across sessions.'}
         </p>

@@ -12,7 +12,7 @@ One row per Supabase Auth user. Stores email, display name, avatar URL, and time
 
 ### `watch_progress`
 
-One row per user and episode, unique on `(user_id, episode_id)`, or per user and movie, unique on `(user_id, media_type, media_id)`. Stores `show_id`, `season_id`, `episode_id`, current season/episode numbers where applicable, `position_seconds`, `duration_seconds`, `progress_percent`, `completed`, and `last_watched_at`. Movie rows use `media_type = 'movie'` with a stable `media_id`.
+One row per user and episode, unique on `(user_id, episode_id)`, or per user and movie, unique on `(user_id, media_type, media_id)`. TV rows use `show_id` and `episode_id`; movie rows use `media_type = 'movie'` with a stable `media_id`. Stores current season/episode numbers where applicable, `position_seconds`, `duration_seconds`, `progress_percent`, `completed`, and `last_watched_at`.
 
 ### Existing foundation tables
 
@@ -40,4 +40,4 @@ The player sends idempotent upserts for an episode or movie. Progress updates ar
 
 ## Migration posture
 
-The SQL schema is intentionally additive and uses stable text IDs for the controlled demo catalog. A later catalog migration can add managed content tables and foreign keys after the product’s provider/licensing choice is known.
+The SQL schema is intentionally additive and uses stable text IDs for the controlled demo catalog. Existing hosted projects initialized from the original starter should run `supabase/migrations/20260910_watch_progress_foundation.sql`; new projects can run `supabase-schema.sql`. A later catalog migration can add managed content tables and foreign keys after the product’s provider/licensing choice is known.

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { isSupabaseConfigured } from '@/lib/supabase/config';
 import { Database } from '@/lib/supabase/database.types';
+import { logSupabaseError } from '@/lib/supabase/logging';
 
 export type ContinueWatchingItem = Database['public']['Tables']['watch_progress']['Row'];
 
@@ -22,7 +23,12 @@ export function useContinueWatching() {
       .order('last_watched_at', { ascending: false })
       .limit(20);
 
-    if (!error) setWatchList(data ?? []);
+    if (error) {
+      logSupabaseError('continue-watching', 'read', error, { userId: uid });
+      return;
+    }
+
+    setWatchList(data ?? []);
   }, []);
 
   useEffect(() => {
@@ -77,7 +83,12 @@ export function useContinueWatching() {
     }
 
     const { error } = await query;
-    if (!error) setWatchList((current) => current.filter((currentItem) => currentItem.id !== item.id));
+    if (error) {
+      logSupabaseError('continue-watching', 'delete', error, { userId, progressId: item.id });
+      return;
+    }
+
+    setWatchList((current) => current.filter((currentItem) => currentItem.id !== item.id));
   }, [userId]);
 
   return {

@@ -65,6 +65,12 @@ ALTER TABLE public.watch_progress ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPT
 ALTER TABLE public.watch_progress ALTER COLUMN media_id DROP NOT NULL;
 ALTER TABLE public.watch_progress DROP CONSTRAINT IF EXISTS watch_progress_user_id_media_id_media_type_key;
 
+-- TV progress is identified by episode_id. Keep media_id reserved for movies
+-- so multiple episodes from one show can coexist under the movie uniqueness key.
+UPDATE public.watch_progress
+SET media_id = NULL
+WHERE media_type = 'tv';
+
 CREATE UNIQUE INDEX IF NOT EXISTS watch_progress_user_episode_key
   ON public.watch_progress(user_id, episode_id);
 

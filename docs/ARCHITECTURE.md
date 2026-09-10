@@ -10,7 +10,7 @@
 
 ## Content model
 
-Stable application IDs identify shows, seasons, episodes, and movies. A show contains ordered seasons; a season contains ordered episodes. Episode progress is keyed by user plus episode, while movie progress is keyed by user, media type, and movie ID. The current episode for a show is derived from the most recently watched incomplete record.
+Stable application IDs identify shows, seasons, episodes, and movies. A show contains ordered seasons; a season contains ordered episodes. Episode progress is keyed by user plus episode, while movie progress is keyed by user, media type, and movie ID. TV progress uses `show_id` and `episode_id`; movie progress uses `media_id`. The current episode for a show is derived from the most recently watched incomplete record.
 
 The catalog adapter should expose list, search, detail, and image-path functions so UI components do not depend on a provider-specific schema.
 
