@@ -64,6 +64,18 @@ Each event is keyed to a stable show, season, and episode ID and contains:
 
 The repository currently includes a complete local event dataset for all six episodes of `Echoes of Orion`. It is controlled demo data for deterministic tests and can later be ingested into the server-managed `episode_plot_events` table.
 
+## Narrative ingestion prototype
+
+The separate server-side ingestion pipeline in `src/lib/ingestion/` converts a transcript into the existing `PlotEvent` shape before any user recap request:
+
+```text
+transcript → bounded chunks → Anthropic narrative extraction → schema validation
+→ normalization/deduplication → PlotEvent/database-ready rows → spoiler-safe retrieval
+→ recap or Q&A
+```
+
+Its input is `showId`, `seasonNumber`, `episodeNumber`, and raw transcript text. The pipeline resolves and validates the canonical catalog episode, sends only transcript context to the extraction provider, and never reads user watch progress. Model output must be strict JSON with event text, characters, importance, and tags; invalid output fails closed and cannot produce database rows. The current prototype prepares rows for `episode_plot_events` but does not automatically write them or replace the manually authored demo events. `ECHOES_OF_ORION_S1E1_TRANSCRIPT` demonstrates the input fixture.
+
 ## Future recap behavior
 
 Return a concise, plot-relevant recap of the eligible watched material. Prioritize unresolved context, important characters, relationships, and events needed to resume. Omit trivia and future material. Identify the episode boundary used.

@@ -28,7 +28,7 @@ Remaining foundation work:
 
 **Owner:** Keshav
 
-**Status:** Narrative retrieval, server-side recap generation, recap UI, and follow-up Q&A complete; provider configuration and broader evaluation remain.
+**Status:** Narrative retrieval, server-side recap generation, recap UI, follow-up Q&A, and a prototype narrative ingestion pipeline complete; provider configuration and broader evaluation remain.
 
 Completed in this phase so far:
 
@@ -38,6 +38,7 @@ Completed in this phase so far:
 - Server-side recap endpoint and provider abstraction
 - Catch Me Up UI with loading, error, empty, authentication, retry, and playback states
 - Spoiler-safe follow-up Q&A endpoint and lightweight modal history
+- Prototype transcript-to-plot-event ingestion pipeline
 
 Build:
 
